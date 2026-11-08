@@ -5,7 +5,7 @@
       "source": "jd-solanki/ai",
       "sourceType": "github",
       "skillPath": "skills/context-engineering/audit-project-context/SKILL.md",
-      "computedHash": "d71bb21f30ea3e277efa47dbd72fcedc59f0194ca1a15b230157a894af4e4e63"
+      "computedHash": "1b3d0bb8553072551f6e3461b8c784f8eb3e681ab9195970f526539e9de59a8a"
     },
     "backport-skill": {
       "source": "jd-solanki/ai",
@@ -47,7 +47,7 @@
       "source": "jd-solanki/ai",
       "sourceType": "github",
       "skillPath": "skills/context-engineering/context-engineering/SKILL.md",
-      "computedHash": "1f8642b935dd70076dc011437d6c4827af31c3e419983c98c431a70e12f97104"
+      "computedHash": "f22b66bc806a79e8364aa16748fe5bbc462a4a62cff9a03fe080b41dd3fcef0e"
     },
     "context7-cli": {
       "source": "upstash/context7",
@@ -173,7 +173,7 @@
       "source": "jd-solanki/ai",
       "sourceType": "github",
       "skillPath": "skills/context-engineering/setup-project-context/SKILL.md",
-      "computedHash": "ea3cccf7eea912ea58023fcde1ff02bf58eded7736d9020613ecae1b7bbb7320"
+      "computedHash": "4e5031d49581041fd54bbc0b661ac5508d3f165eb0c7304f3ba1d325d9343ff1"
     },
     "tdd": {
       "source": "jd-solanki/ai",

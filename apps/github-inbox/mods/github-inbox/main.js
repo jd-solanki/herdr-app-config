@@ -1,46 +1,46 @@
-import { mkdir, writeFile } from "fs/promises";
+// Open issues and PRs from every repo the gh account sees, in one list, as on github.com/issues.
+
 import { View, div, svg } from "gpui-kit";
 import { Input, InputState, h_flex, v_flex } from "gpui-base";
-import { appHome, exec, notify, theme } from "herdr";
+import { exec, theme as herdrTheme } from "herdr";
 
-const QUERY = "state:open label:agent:handed-back";
+/** @import { AsyncContext, Color } from "gpui-kit" */
+/** @typedef {{ name: string, color: string }} Label */
+/** @typedef {{ repository: { nameWithOwner: string }, number: number, title: string, author: { login: string }, createdAt: string, updatedAt: string, commentsCount: number, labels: Label[], isPullRequest: boolean, url: string }} Work */
+/** @typedef {Record<string, Color>} Colors */
+
+// herdr.d.ts types the theme as plain strings; its values are #rrggbb colors.
+const theme = () => /** @type {Colors} */ (/** @type {unknown} */ (herdrTheme()));
+
+const DEFAULT_QUERY = "state:open assignee:@me";
+// A query the person submits outlives restarts; DEFAULT_QUERY only seeds a fresh install.
+const QUERY_KEY = "query";
 const REFRESH_MS = 60_000;
 const FIELDS =
   "repository,number,title,author,createdAt,updatedAt,commentsCount,labels,isPullRequest,url";
-const ICON_FOLDER = "data/handed-back/icons";
-// Lucide (ISC). Written under the app folder at start, so the mod stays one built main.js.
-const ICONS = {
-  issue: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="10"/>',
-  pr: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/>',
-  comment: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-};
+// The path names the mod's folder: renaming the mod changes it too.
+const ICONS = "mods/github-inbox";
 
-// Every repo the gh account sees, issues and PRs in one list, as on github.com/issues.
-export default class HandedBack extends View {
+export default class GithubInbox extends View {
+  /** @param {unknown} _props @param {AsyncContext} cx */
   init(_props, cx) {
-    this.query = QUERY;
+    this.query = localStorage.getItem(QUERY_KEY) ?? DEFAULT_QUERY;
+    /** @type {{ value?: Work[], error?: string } | null} */
     this.list = null;
     this.search = InputState.new({ placeholder: "GitHub search query" });
-    this.search.set_value(QUERY);
+    this.search.set_value(this.query);
     this.search.on("submit", (_e, cx) => {
       this.query = this.search.value();
+      localStorage.setItem(QUERY_KEY, this.query);
       this.list = null;
       this.refresh(cx);
       cx.notify();
     });
     cx.timer.every(REFRESH_MS, (cx) => this.refresh(cx));
-    cx.spawn(async (cx) => {
-      await writeIcons().catch((error) =>
-        notify({
-          title: "Could not write the handed-back icons",
-          body: error.message,
-          level: "error",
-        }),
-      );
-      this.refresh(cx);
-    });
+    this.refresh(cx);
   }
 
+  /** @param {AsyncContext} cx */
   refresh(cx) {
     const query = this.query;
     cx.spawn(async (cx) => {
@@ -49,7 +49,8 @@ export default class HandedBack extends View {
         if (query === this.query) this.list = { value: works };
       } catch (error) {
         // A network blip keeps the last good result.
-        if (query === this.query && !this.list?.value) this.list = { error: error.message };
+        if (query === this.query && !this.list?.value)
+          this.list = { error: /** @type {Error} */ (error).message };
       }
       cx.notify();
     });
@@ -82,6 +83,7 @@ export default class HandedBack extends View {
       .child(this.results(colors));
   }
 
+  /** @param {Colors} colors */
   results(colors) {
     const box = v_flex()
       .flex_1()
@@ -112,7 +114,7 @@ export default class HandedBack extends View {
       .when(Boolean(value), (box) =>
         box.child(
           v_flex()
-            .id("handed-back-rows")
+            .id("github-inbox-rows")
             .flex_1()
             .min_h(0)
             .overflow_y_scrollbar()
@@ -123,6 +125,7 @@ export default class HandedBack extends View {
 }
 
 // shortcut: words split on spaces, so a quoted value with a space in it breaks; parse quotes if a query needs one.
+/** @param {string} query @returns {Promise<Work[]>} */
 async function searchWork(query) {
   const args = [
     "search",
@@ -142,20 +145,9 @@ async function searchWork(query) {
   return JSON.parse(result.stdout);
 }
 
-async function writeIcons() {
-  const folder = `${appHome()}/${ICON_FOLDER}`;
-  await mkdir(folder, { recursive: true });
-  const svgOf = (shapes) =>
-    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${shapes}</svg>`;
-  await Promise.all(
-    Object.entries(ICONS).map(([name, shapes]) =>
-      writeFile(`${folder}/${name}.svg`, svgOf(shapes)),
-    ),
-  );
-}
-
+/** @param {Work} work @param {Colors} colors */
 function row(work, colors) {
-  const icon = svg(`${ICON_FOLDER}/${work.isPullRequest ? "pr" : "issue"}.svg`)
+  const icon = svg(`${ICONS}/${work.isPullRequest ? "pr" : "issue"}.svg`)
     .size(16)
     .flex_none()
     .mt(2)
@@ -197,13 +189,14 @@ function row(work, colors) {
             .items_center()
             .text_size(12)
             .text_color(colors.muted)
-            .child(svg(`${ICON_FOLDER}/comment.svg`).size(14).text_color(colors.muted))
+            .child(svg(`${ICONS}/comment.svg`).size(14).text_color(colors.muted))
             .child(String(work.commentsCount)),
         ),
       )
   );
 }
 
+/** @param {Label} label */
 function labelChip({ name, color }) {
   return div()
     .flex_none()
@@ -211,19 +204,22 @@ function labelChip({ name, color }) {
     .rounded(10)
     .text_size(11)
     .font_semibold()
-    .bg(`#${color}`)
+    .bg(/** @type {Color} */ (`#${color}`))
     .text_color(textOn(color))
     .child(name);
 }
 
 // GitHub's own rule is fancier; perceived brightness picks dark or light text well enough.
+/** @param {string} hex @returns {Color} */
 function textOn(hex) {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#1f2328" : "#ffffff";
 }
 
+/** @param {string} iso @param {number} now */
 function ago(iso, now = Date.now()) {
   const seconds = Math.max(0, (now - Date.parse(iso)) / 1000);
+  /** @type {[string, number][]} */
   const steps = [
     ["year", 31_536_000],
     ["month", 2_592_000],

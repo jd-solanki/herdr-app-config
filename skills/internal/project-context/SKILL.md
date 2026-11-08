@@ -59,5 +59,6 @@ governs.
 | `domains/gallery-apps.md`      | creating, changing or publishing an app, or writing its recipe or preview                                                                          |
 | `domains/spaces-avatars.md`    | changing the Spaces list app; with gallery-apps.md                                                                                                 |
 | `domains/agent-triage.md`      | changing the Agents list app; with gallery-apps.md                                                                                                 |
+| `domains/github-inbox.md`      | changing the GitHub inbox app; with gallery-apps.md                                                                                                |
 | `domains/github.md`            | changing the GitHub tab mod or `mermaid-svg`; with build-and-install.md                                                                            |
 | `domains/tab-title.md`         | changing the tab-title mod; with build-and-install.md                                                                                              |

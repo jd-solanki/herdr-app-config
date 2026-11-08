@@ -26,9 +26,7 @@ the first diagram needs network, because `bun` downloads Pele then.
 - Click a row's labels to pick them. It shows the first few labels; type to find the rest. Ticking does nothing until
   the picker closes, which saves every change in one call.
 - Images show as 🖼 links and as thumbnails under the post. Click either to see it full size; Esc closes it.
-- Click **Handed back** beside Changes for a side panel of every open issue and PR labelled
-  `agent:handed-back`, across all repos the default gh account sees. Edit its query and press Enter;
-  click a row to open it in the browser.
+- Click **Inbox** beside Changes for the [GitHub inbox](../../../apps/github-inbox/) as a side panel.
 
 ## Change it
 
@@ -39,4 +37,4 @@ Open the tab to test.
 `cloned_from` in `workspace-tabs/mod.json` records the version.
 To take an update, compare it with `~/.config/herdr-app/mods/tabs/main.js`, and compare
 `layouts/workspace.json` with `~/.config/herdr-app/layouts/main.json`. Only the `mod`
-lines naming this repo's clones, the `tab-title` block and the `handed-back` panel should differ.
+lines naming this repo's clones, the `tab-title` block and the `github-inbox` panel should differ.

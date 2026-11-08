@@ -156,10 +156,10 @@
                       }
                     },
                     {
-                      "id": "handed-back",
+                      "id": "github-inbox",
                       "type": "block",
                       "content": {
-                        "mod": "handed-back"
+                        "mod": "github-inbox"
                       }
                     }
                   ]

@@ -217,7 +217,7 @@ export default class Tabs extends View {
         : 10;
     const panel = find(root, "panel"),
       body = find(root, "panel-body");
-    const enabled = [...(shared("workspace.panels") ?? ["files", "changes"]), "handed-back"];
+    const enabled = [...(shared("workspace.panels") ?? ["files", "changes"]), "github-inbox"];
     this.syncPanel(space, panel, body, enabled);
     const barButton = (id, label, icon, on, action) =>
       h_flex()
@@ -284,7 +284,7 @@ export default class Tabs extends View {
       .when(enabled.includes("changes"), (el) =>
         el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")),
       )
-      .child(panelButton("handed-back", "Handed back", this.inboxReady ? INBOX_ICON : null))
+      .child(panelButton("github-inbox", "Inbox", this.inboxReady ? INBOX_ICON : null))
       .child(
         barButton(
           "github-page",

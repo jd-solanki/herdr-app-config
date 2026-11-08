@@ -11,18 +11,19 @@ mod first, tells you what it runs, then adds it.
 | -------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | [Spaces with avatars](./apps/spaces-avatars) | Replaces the Spaces list: GitHub owner avatars and git counts         | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--spaces-avatars` |
 | [Agent triage](./apps/agent-triage)          | Replaces the Agents list: what needs you first, in sections that fold | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--agent-triage`   |
+| [GitHub inbox](./apps/github-inbox)          | Open issues and PRs from every repo, from one GitHub search           | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--github-inbox`   |
 
-They pair: with both, Agent triage shows each space's avatar and repo name.
+Spaces with avatars and Agent triage pair: with both, Agent triage shows each space's avatar
+and repo name.
 
 ## Not published yet
 
-| Mod or layout                                 | What it does                                                                   |
-| --------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`github`](./src/mods/github/README.md)       | A GitHub tab per space: issues and PRs, read in the app                        |
-| `handed-back`                                 | Side panel: every open issue and PR labelled `agent:handed-back`, in all repos |
-| [`tab-title`](./src/mods/tab-title/README.md) | A tab named `#123` takes that issue's or PR's title                            |
-| `workspace-tabs`                              | Herdr's `tabs` mod plus the GitHub and Handed back buttons                     |
-| `src/layouts/workspace.json`                  | Herdr's `main` layout wired to all of the above                                |
+| Mod or layout                                 | What it does                                            |
+| --------------------------------------------- | ------------------------------------------------------- |
+| [`github`](./src/mods/github/README.md)       | A GitHub tab per space: issues and PRs, read in the app |
+| [`tab-title`](./src/mods/tab-title/README.md) | A tab named `#123` takes that issue's or PR's title     |
+| `workspace-tabs`                              | Herdr's `tabs` mod plus the GitHub and Inbox buttons    |
+| `src/layouts/workspace.json`                  | Herdr's `main` layout wired to all of the above         |
 
 ## Setup
 

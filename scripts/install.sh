@@ -17,19 +17,29 @@ done
 for file in src/layouts/*.json; do place "$file" "$app/layouts"; done
 place bin/mermaid-svg "$HOME/.local/bin"
 
-# keys.json is Herdr's own file, written on first start, so the binding is upserted.
+# keys.json is Herdr's own file, written on first start, so each app's keys and the GitHub key
+# are upserted into it.
 keys="$app/keys.json"
 if [ -f "$keys" ]; then
   node -e '
     const fs = require("node:fs");
-    const [path] = process.argv.slice(1);
+    const [path, ...appKeys] = process.argv.slice(1);
     const keys = JSON.parse(fs.readFileSync(path, "utf8"));
-    const wanted = "workspace-tabs.open-github";
-    if (keys.global["ctrl-shift-g"] !== wanted) {
-      keys.global["ctrl-shift-g"] = wanted;
-      fs.writeFileSync(path, `${JSON.stringify(keys, null, 2)}\n`);
-    }
-  ' "$keys" || echo "WARNING: could not add the GitHub key to $keys."
+    const wanted = [
+      ...appKeys.map((file) => JSON.parse(fs.readFileSync(file, "utf8"))),
+      { global: { "ctrl-shift-g": "workspace-tabs.open-github" } },
+    ];
+    let changed = false;
+    for (const sections of wanted)
+      for (const [section, bindings] of Object.entries(sections))
+        for (const [key, action] of Object.entries(bindings)) {
+          keys[section] ??= {};
+          if (JSON.stringify(keys[section][key]) === JSON.stringify(action)) continue;
+          keys[section][key] = action;
+          changed = true;
+        }
+    if (changed) fs.writeFileSync(path, `${JSON.stringify(keys, null, 2)}\n`);
+  ' "$keys" apps/*/keys.json || echo "WARNING: could not add the keys to $keys."
 else
-  echo "NOTE: open the Herdr app once, then run 'pnpm run setup' again to add the GitHub key."
+  echo "NOTE: open the Herdr app once, then run 'pnpm run setup' again to add the keys."
 fi

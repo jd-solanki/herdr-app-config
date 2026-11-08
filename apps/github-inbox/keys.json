@@ -1,0 +1,5 @@
+{
+  "global": {
+    "ctrl-shift-i": { "command": "tab.new", "args": { "name": "Inbox", "mod": "github-inbox" } }
+  }
+}

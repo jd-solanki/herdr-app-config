@@ -32,7 +32,16 @@ It needs `gh`, logged in.
 - Typing a word with a `:` (`is:`, `review:`) suggests its values, and label names after
   `label:`. Enter or Tab takes the highlighted one.
 - Click a row to open it in the browser.
-- It refreshes every minute.
+- It refreshes every minute while it's on screen.
+
+## Keep it open in every space
+
+A tab lives in one space. To keep the inbox on screen everywhere, like the Spaces list, give
+your layout a block with the id `github-inbox` showing this mod. This repo's
+[`workspace` layout](../../src/layouts/) puts it in a 380px column right of the tabs.
+
+With tab-bar, the **Inbox** button and `ctrl-shift-i` then show and hide that column in every
+space at once.
 
 [RECIPE.md](RECIPE.md) describes it exactly, enough for an agent to build it again.
 

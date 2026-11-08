@@ -103,8 +103,9 @@ export default class Tabs extends View {
       .filter((b) => b !== undefined);
   }
 
-  // A button whose mod has a block in the panel stack toggles the panel; any other goes to
-  // the space's tab showing that mod, or opens one.
+  // A button whose mod has a block in the panel stack toggles the panel; one whose mod has
+  // its own layout node toggles that node in every space; any other goes to the space's tab
+  // showing that mod, or opens one.
   press(button: Button) {
     const root = layout() as LayoutNode,
       panel = find(root, "panel"),
@@ -115,6 +116,10 @@ export default class Tabs extends View {
         run("layout.select", { stack: "panel-body", child: button.mod });
         run("layout.show", { id: "panel" });
       }
+      return;
+    }
+    if (find(root, button.mod)) {
+      run("layout.toggle", { id: button.mod });
       return;
     }
     const space = spaces().find((p) => p.active);
@@ -375,7 +380,9 @@ export default class Tabs extends View {
             b.icon ?? null,
             body?.children?.some((c) => c.id === b.mod)
               ? panel && !panel.hidden && body.active === b.mod
-              : Boolean(this.modTab(space, b.mod)) &&
+              : find(root, b.mod)
+                ? !find(root, b.mod)!.hidden
+                : Boolean(this.modTab(space, b.mod)) &&
                   shown.find((c) => c.active)?.id === this.modTab(space, b.mod),
             () => this.press(b),
           ),

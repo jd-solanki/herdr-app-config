@@ -155,17 +155,22 @@
                       "content": {
                         "mod": "changes"
                       }
-                    },
-                    {
-                      "id": "github-inbox",
-                      "type": "block",
-                      "content": {
-                        "mod": "github-inbox"
-                      }
                     }
                   ]
                 }
               ]
+            },
+            {
+              "id": "github-inbox",
+              "type": "block",
+              "size": {
+                "px": 380
+              },
+              "min": 280,
+              "max": 900,
+              "content": {
+                "mod": "github-inbox"
+              }
             }
           ]
         },

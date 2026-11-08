@@ -130,7 +130,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 
 ## Watch out
 
-- **It runs programs and reaches the network.** `gh` runs with the person's own login, in the repo's folder, so gh's account follows that repo. `curl` fetches the images a post contains from github.com and `*.githubusercontent.com` only, and `bun` downloads Pele from npm on the first diagram. Without `bun`, every diagram shows its error and its source.
+- **It runs programs and reaches the network.** `gh` runs with the person's own login, in the repo's folder, so gh's account follows that repo. `curl` fetches the GitHub-hosted images a post contains, following GitHub's redirect to S3, and `bun` downloads Pele from npm on the first diagram. Without `bun`, every diagram shows its error and its source.
 - **The token goes in on stdin.** `gh auth token` is piped to curl as an `Authorization` header via `-H @-`, so the token never shows in argv. It is sent only to github.com and `*.githubusercontent.com`. curl drops it on the redirect to S3. The login it picks is the repo's `git config user.name`, the rule the person's gh wrapper uses for choosing an account.
 - **Only GitHub-hosted images are downloaded.** Any other host would learn the person's IP and when they read the post, so a tracking pixel in a comment would work. The download refuses other hosts itself, so no future caller can send it the token.
 - **Only images are kept.** The download must report `image/png`, `jpeg`/`jpg`, `gif`, `webp`, `svg` or `bmp` as its content type; anything else is the error "Not an image: <url>". Herdr picks the decoder by file extension, so the extension comes from that type. Downloads are https-only, redirects included, at most 20 MB and 25 s.

@@ -21,6 +21,7 @@
     "types": "cp \"${HERDR_APP_HOME:-$HOME/.config/herdr-app}\"/gpui-kit.d.ts \"${HERDR_APP_HOME:-$HOME/.config/herdr-app}\"/herdr.d.ts types/"
   },
   "devDependencies": {
+    "@herdr-app-config/github-search": "workspace:*",
     "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
     "vite-plus": "catalog:"

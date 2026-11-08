@@ -1,0 +1,9 @@
+{
+  "name": "@herdr-app-config/github-search",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub search box with qualifier and label autocomplete, as on github.com, for Herdr mods",
+  "license": "MIT",
+  "type": "module",
+  "exports": "./src/index.ts"
+}

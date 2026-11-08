@@ -29,6 +29,8 @@ It needs `gh`, logged in.
 
 - It starts on `state:open assignee:@me`. Type any GitHub search query and press Enter; the
   inbox keeps your query across restarts.
+- Typing a word with a `:` (`is:`, `review:`) suggests its values, and label names after
+  `label:`. Enter or Tab takes the highlighted one.
 - Click a row to open it in the browser.
 - It refreshes every minute.
 

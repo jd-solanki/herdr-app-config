@@ -7,10 +7,10 @@ herdr.dev's public catalogue of mods and layouts, built from public GitHub repos
 
 ## Rules
 
-- An app folder holds its `mods/` (or layouts), its recipe, `preview.png`, `LICENSE` and
-  `NOTICE`.
-- Apps are plain JS, type-checked against `types/` with `checkJs`; add JSDoc where
-  inference stops.
+- An app folder holds its TypeScript source in `src/`, its `mods/` (or layouts) with the
+  committed build, its recipe, `preview.png`, `LICENSE` and `NOTICE`.
+- The build keeps only JSDoc and license comments, so a reason an installing agent needs goes
+  in the recipe, not only in a source comment.
 - `herdr-app check <mod folder>` loads a mod once with no props, so it misses bugs in rows
   and tabs. Test a change in the app.
 - The gallery lists every folder with a recipe in a public repo with the `herdr-mod` or
@@ -24,8 +24,10 @@ herdr.dev's public catalogue of mods and layouts, built from public GitHub repos
 
 ## Fences
 
-- **An app ships exactly as it is in git.** The gallery publishes the folder from git, so
-  there is no build step: a fix that lives only in a build never reaches anyone. `apps/`
+- **An app's build is committed with its source.** The gallery publishes `mods/` from git,
+  so a source change without its rebuilt `main.js` publishes the old app; the pre-commit check
+  fails a commit whose build is stale. Never edit an app's built `main.js` by hand.
+  `scripts/check-built.sh`
 - **The recipe is the source.** `main.js` is one build of the recipe. A behaviour change
   updates the recipe in the same change, or the next agent rebuilds the old app.
   `apps/*/RECIPE.md`

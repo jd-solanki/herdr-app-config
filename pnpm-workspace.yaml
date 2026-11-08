@@ -1,4 +1,5 @@
-# apps/<name>/ is one Herdr gallery item, published as it is in git; packages/ holds code apps share.
+# apps/<name>/ is one Herdr gallery item, its build committed beside its source; packages/ holds
+# code mods share, which each mod's build inlines.
 packages:
   - apps/*
   - packages/*

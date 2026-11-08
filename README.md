@@ -37,7 +37,7 @@ pnpm install
 pnpm run setup
 ```
 
-`setup` builds the `src/` mods into `dist/` and runs `scripts/install.sh`, which copies every
+`setup` builds every mod and runs `scripts/install.sh`, which copies every
 mod, the layouts and `bin/mermaid-svg` into place and binds `ctrl-shift-g` to the GitHub tab and `ctrl-shift-i` to the inbox.
 Open the Herdr app once before it, so `keys.json` exists. Then press `ctrl-shift-l`
 (`cmd-shift-l` on the Mac) until the `workspace` layout shows.

@@ -175,6 +175,9 @@ importers:
 
   .:
     devDependencies:
+      '@herdr-app-config/github-search':
+        specifier: workspace:*
+        version: link:packages/github-search
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.6
@@ -184,6 +187,22 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 1.0.0(@types/node@26.6.6)(@vitest/ui@5.0.1)(typescript@7.0.2)
+
+  apps/agent-triage: {}
+
+  apps/github-inbox:
+    dependencies:
+      '@herdr-app-config/github-search':
+        specifier: workspace:*
+        version: link:../../packages/github-search
+
+  apps/spaces-avatars: {}
+
+  apps/tab-bar: {}
+
+  apps/tab-title: {}
+
+  packages/github-search: {}
 
 packages:
 

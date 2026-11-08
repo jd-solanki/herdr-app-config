@@ -11,12 +11,12 @@ _Avoid_: plugin, extension
 A JSON tree of blocks Herdr arranges its window from; each block names the mod it shows.
 
 **App**:
-One gallery item under `apps/<name>/`: a mod or layout with its recipe, preview, license and
-notice, published exactly as it is in git.
-_Avoid_: package, published mod
+One gallery item under `apps/<name>/`: a mod or layout with its source, its committed build,
+recipe, preview, license and notice.
+_Avoid_: published mod
 
 **Source mod**:
-A mod under `src/` that is built before install and not yet an app.
+A mod under `src/` that is not yet an app; it builds into `dist/` before install.
 _Avoid_: unpublished mod, legacy mod
 
 **Recipe**:
@@ -44,3 +44,7 @@ _Avoid_: config dir
 **Label slot**:
 The `tab-bar.labels` shared key: tab id to the label an unnamed tab shows, filled by any mod.
 _Avoid_: tab titles, title override
+
+**Package**:
+Code more than one mod shares, under `packages/<name>/`; each mod's build inlines it.
+_Avoid_: library, shared module

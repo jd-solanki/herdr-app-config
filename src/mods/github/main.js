@@ -1,7 +1,8 @@
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import { View, div, image, svg } from "gpui-kit";
-import { Input, InputState, Popover, Popup, TextView, h_flex, v_flex } from "gpui-base";
+import { Input, InputState, Popover, TextView, h_flex, v_flex } from "gpui-base";
+import { ISSUE_QUALIFIERS, PULL_QUALIFIERS, SearchBox } from "@herdr-app-config/github-search";
 import {
   appHome,
   exec,
@@ -30,44 +31,7 @@ const PRESETS = [
 // The last kind and query, so a new GitHub tab opens on the view used last.
 const LAST_VIEW_KEY = "github.lastView";
 
-const SUGGESTIONS_SHOWN = 8;
-// Users are left out: suggesting them means fetching every collaborator.
-const QUALIFIERS = {
-  issues: [
-    "is:open",
-    "is:closed",
-    "label:",
-    "no:label",
-    "no:assignee",
-    "assignee:@me",
-    "author:@me",
-    "involves:@me",
-    "mentions:@me",
-    "sort:updated-desc",
-    "sort:created-desc",
-    "sort:comments-desc",
-  ],
-  pulls: [
-    "is:open",
-    "is:closed",
-    "is:merged",
-    "is:draft",
-    "label:",
-    "no:label",
-    "no:assignee",
-    "assignee:@me",
-    "author:@me",
-    "involves:@me",
-    "mentions:@me",
-    "review-requested:@me",
-    "review:required",
-    "review:approved",
-    "review:changes_requested",
-    "sort:updated-desc",
-    "sort:created-desc",
-    "sort:comments-desc",
-  ],
-};
+const QUALIFIERS = { issues: ISSUE_QUALIFIERS, pulls: PULL_QUALIFIERS };
 
 const WORK_FIELDS = "number,title,author,labels,state,url";
 const LIST_FIELDS = `${WORK_FIELDS},assignees`;
@@ -125,12 +89,15 @@ export default class GitHub extends View {
     this.labelDrafts = new Map();
     this.labelSearch = InputState.new({ placeholder: "Search labels" });
     this.labelSearch.on("change", (_e, cx) => cx.notify());
-    this.search = InputState.new({ placeholder: "GitHub search query" });
-    this.search.set_value(this.query);
-    this.search.on("submit", (_e, cx) => this.submitSearch(cx));
-    this.search.on("change", (_e, cx) => this.showSuggestions(cx));
-    this.suggestionsOpen = false;
-    this.suggestionIndex = 0;
+    this.search = new SearchBox({
+      query: this.query,
+      qualifiers: () => QUALIFIERS[this.kind],
+      labels: () => this.repoLabels()?.value?.map(({ name }) => name) ?? [],
+      needLabels: (cx) => {
+        if (!this.repoLabels()) this.loadRepoLabels(cx);
+      },
+      submit: (query, cx) => this.setQuery(query, cx),
+    });
     cx.timer.every(REFRESH_MS, (cx) => this.refresh(cx));
     // The table waits for the icons: an svg() drawn before its file exists stays blank.
     this.iconsReady = false;
@@ -217,8 +184,7 @@ export default class GitHub extends View {
 
   setQuery(query, cx) {
     this.query = query;
-    this.search.set_value(query);
-    this.suggestionsOpen = false;
+    this.search.set(query);
     this.rememberView();
     this.refresh(cx);
     cx.notify();
@@ -227,73 +193,18 @@ export default class GitHub extends View {
   setKind(kind, cx) {
     this.kind = kind;
     this.labelDrafts.clear();
-    this.suggestionsOpen = false;
+    this.search.close();
     this.rememberView();
     this.refresh(cx);
     cx.notify();
-  }
-
-  // Enter finishes the picked suggestion first, as on GitHub; with no suggestion showing, Enter searches.
-  submitSearch(cx) {
-    const suggestions = this.suggestions();
-    if (suggestions.length) this.acceptSuggestion(suggestions[this.suggestionIndex], cx);
-    else this.setQuery(this.search.value(), cx);
   }
 
   rememberView() {
     setShared(LAST_VIEW_KEY, { kind: this.kind, query: this.query });
   }
 
-  showSuggestions(cx) {
-    this.suggestionsOpen = true;
-    this.suggestionIndex = 0;
-    const wantsLabels = /^-?label:/.test(lastWord(this.search.value()));
-    if (wantsLabels && !this.repoLabels()) this.loadRepoLabels(cx);
-    cx.notify();
-  }
-
-  suggestions() {
-    if (!this.suggestionsOpen) return [];
-    const labelNames = this.repoLabels()?.value?.map(({ name }) => name) ?? [];
-    return searchSuggestions(this.search.value(), QUALIFIERS[this.kind], labelNames).slice(
-      0,
-      SUGGESTIONS_SHOWN,
-    );
-  }
-
-  acceptSuggestion(word, cx) {
-    const query = this.search.value();
-    const completed = query.slice(0, query.length - lastWord(query).length) + word;
-    // A bare qualifier like "label:" still needs its value, so the popup stays for it.
-    this.search.set_value(word.endsWith(":") ? completed : `${completed} `);
-    this.search.focus();
-    this.showSuggestions(cx);
-  }
-
-  closeSuggestions(cx) {
-    if (!this.suggestionsOpen) return;
-    this.suggestionsOpen = false;
-    cx.notify();
-  }
-
-  moveSuggestion(step, count, cx) {
-    this.suggestionIndex = (this.suggestionIndex + step + count) % count;
-    cx.notify();
-  }
-
-  // ↑ and ↓ pick, Tab accepts and Esc closes; Enter is the input's submit, handled in submitSearch.
-  steerSuggestions(event, suggestions, cx) {
-    if (!suggestions.length) return;
-    if (event.key === "down") this.moveSuggestion(1, suggestions.length, cx);
-    else if (event.key === "up") this.moveSuggestion(-1, suggestions.length, cx);
-    else if (event.key === "tab") this.acceptSuggestion(suggestions[this.suggestionIndex], cx);
-    else if (event.key === "escape") this.closeSuggestions(cx);
-    else return;
-    cx.stop_propagation();
-  }
-
   showWork(number, cx) {
-    this.suggestionsOpen = false;
+    this.search.close();
     this.openWork = number;
     this.refresh(cx);
     cx.notify();
@@ -418,7 +329,7 @@ export default class GitHub extends View {
       .gap(10)
       .child(this.kindTabs(colors))
       .child(this.presets(colors))
-      .child(this.searchBox(colors))
+      .child(this.search.render(colors))
       .child(this.results(colors));
   }
 
@@ -452,66 +363,6 @@ export default class GitHub extends View {
             (_e, cx) => this.setQuery(query, cx),
             colors,
           ),
-        ),
-      );
-  }
-
-  searchBox(colors) {
-    const suggestions = this.suggestions();
-    const box = div()
-      .h(34)
-      .px(10)
-      .flex()
-      .items_center()
-      .rounded(7)
-      .border(1)
-      .border_color(colors.border)
-      .child(Input.new(this.search).flex_1().h_full().text_size(13).text_color(colors.foreground));
-    return (
-      div()
-        .id("search")
-        .flex_none()
-        .on_key_down((event, cx) => this.steerSuggestions(event, suggestions, cx))
-        // Not the input's blur: a press on non-focusable space may not move focus.
-        .on_mouse_down_out((_e, cx) => this.closeSuggestions(cx))
-        .child(
-          Popup.new("search-suggestions", box)
-            .anchor("top_left")
-            .when(suggestions.length, (popup) =>
-              popup.content(this.suggestionList(suggestions, colors)),
-            ),
-        )
-    );
-  }
-
-  suggestionList(suggestions, colors) {
-    return v_flex()
-      .id("suggestion-list")
-      .min_w(260)
-      .p(4)
-      .gap(2)
-      .rounded(8)
-      .border(1)
-      .border_color(colors.border)
-      .bg(colors.surface)
-      .text_size(12)
-      .children(
-        suggestions.map((word, index) =>
-          div()
-            .id(`suggestion-${index}`)
-            .h(26)
-            .px(8)
-            .flex()
-            .items_center()
-            .rounded(5)
-            .when(index === this.suggestionIndex, (row) => row.bg(colors.hover))
-            .hover((style) => style.bg(colors.hover))
-            // Mouse down, not click: the press must land before the input can lose focus.
-            .on_mouse_down("left", (_e, cx) => {
-              cx.stop_propagation();
-              this.acceptSuggestion(word, cx);
-            })
-            .child(word),
         ),
       );
   }
@@ -687,31 +538,6 @@ function labelEditArgs(applied, chosen) {
     ...(added.length ? ["--add-label", csv(added)] : []),
     ...(removed.length ? ["--remove-label", csv(removed)] : []),
   ];
-}
-
-// shortcut: only the word at the end is completed, and a quoted value with a space in it is not; read the cursor if that matters.
-function lastWord(query) {
-  return query.slice(query.lastIndexOf(" ") + 1);
-}
-
-// Completes the last word once it has a `:`: a qualifier, or a label name after label: or -label:.
-// Plain words like `in` get none, so Enter never rewrites free text; a finished word gets none either.
-function searchSuggestions(query, qualifiers, labelNames) {
-  const word = lastWord(query);
-  if (!word.includes(":")) return [];
-  const negation = word.startsWith("-") ? "-" : "";
-  const typed = word.slice(negation.length).toLowerCase();
-  const candidates = typed.startsWith("label:")
-    ? labelNames
-        .filter((name) =>
-          name.toLowerCase().includes(typed.slice("label:".length).replace(/^"/, "")),
-        )
-        .map((name) => `${negation}label:${name.includes(" ") ? `"${name}"` : name}`)
-    : qualifiers
-        .filter((qualifier) => qualifier.startsWith(typed))
-        .map((qualifier) => negation + qualifier);
-  const isFinished = candidates.some((candidate) => candidate.toLowerCase() === word.toLowerCase());
-  return isFinished ? [] : candidates;
 }
 
 function viewWork(kind, number, place) {

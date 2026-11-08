@@ -4,5 +4,8 @@
   "private": true,
   "description": "Herdr GitHub inbox: open issues and PRs across every repo, from one search",
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@herdr-app-config/github-search": "workspace:*"
+  }
 }

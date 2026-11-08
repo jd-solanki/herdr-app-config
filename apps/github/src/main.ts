@@ -108,9 +108,8 @@ const IMAGE = /!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)|<img\b[^>]*\bsrc=["']([^"
 const GITHUB_ASSET = /^https:\/\/(github\.com|[\w-]+\.githubusercontent\.com)\//;
 // A linked image, [![alt](image)](href): one link to href, so no link sits inside another. Groups: alt, image URL, href.
 const LINKED_IMAGE = /\[\s*!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)\s*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
-const CURL = `curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M --max-time 25 -H @- -w '%{content_type}' -o "$2" -- "$1"`;
 // The token goes in on stdin, so argv never shows it, and curl drops it on the redirect to S3.
-const AUTHED_CURL = `gh auth token \${3:+-u "$3"} | sed 's/^/Authorization: token /' | ${CURL}`;
+const AUTHED_CURL = `gh auth token \${3:+-u "$3"} | sed 's/^/Authorization: token /' | curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M --max-time 25 -H @- -w '%{content_type}' -o "$2" -- "$1"`;
 
 export default class GitHub extends View {
   declare spaceId: string;

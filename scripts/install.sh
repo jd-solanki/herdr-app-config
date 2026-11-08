@@ -8,9 +8,10 @@ app="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
 
 # rm first: cp writes through a symlink, and an old stow link points back into a repo.
 # File by file, so what a mod keeps in its installed folder (spaces-avatars' .avatars/) stays.
+# apps/ last: it wins over any build left in dist/.
 place() { mkdir -p "$2"; rm -f "$2/$(basename "$1")"; cp "$1" "$2/"; }
 
-for file in apps/*/mods/*/* dist/mods/*/*; do
+for file in dist/mods/*/* apps/*/mods/*/*; do
   [ -f "$file" ] && place "$file" "$app/mods/$(basename "$(dirname "$file")")"
 done
 for file in src/layouts/*.json; do place "$file" "$app/layouts"; done

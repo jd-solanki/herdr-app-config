@@ -12,12 +12,12 @@
   },
   "type": "module",
   "scripts": {
-    "build": "vp pack",
-    "dev": "node --watch-path=apps --watch-preserve-output scripts/install-on-save.mjs & vp pack --watch --on-success 'sh scripts/install.sh'; wait",
+    "build": "rm -rf dist && vp pack",
+    "dev": "rm -rf dist && (node --watch-path=apps --watch-preserve-output scripts/install-on-save.mjs & vp pack --watch --on-success 'sh scripts/install.sh'; wait)",
     "test": "vp test",
     "check": "vp check",
     "prepare": "vp config",
-    "setup": "vp pack && sh scripts/install.sh",
+    "setup": "pnpm run build && sh scripts/install.sh",
     "types": "cp \"${HERDR_APP_HOME:-$HOME/.config/herdr-app}\"/gpui-kit.d.ts \"${HERDR_APP_HOME:-$HOME/.config/herdr-app}\"/herdr.d.ts types/"
   },
   "devDependencies": {

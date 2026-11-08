@@ -602,13 +602,13 @@ async function openInBrowser({ number, url }: Work) {
 }
 
 async function downloadImage(url: string, place: Place) {
+  // The gh token goes with every request, so no other host is ever fetched.
+  if (!GITHUB_ASSET.test(url)) throw new Error(`Not a GitHub image: ${url}`);
   const folder = `${appHome()}/${IMAGE_FOLDER}`;
   // A stable file name per URL.
   const name = createHash("sha256").update(url).digest("hex");
   // One temp file per call: tabs in other spaces can fetch the same URL at once.
   const part = `${folder}/${name}.${randomUUID()}.part`;
-  // The gh token goes with every request, so no other host is ever fetched.
-  if (!GITHUB_ASSET.test(url)) throw new Error(`Not a GitHub image: ${url}`);
   // The gh wrapper's account rule: the repo's user.name is the login.
   const login = (await stdoutOf("git", ["config", "user.name"], place).catch(() => "")).trim();
   await mkdir(folder, { recursive: true });

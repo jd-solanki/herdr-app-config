@@ -32,7 +32,7 @@ The mod fills its pane on the theme's `background`, 10px padding, 10px between i
 
 ## Built from
 
-- **One mod**, `mods/github-inbox/`, with `main.js`, `mod.json` (`"place": "none"`, `"title": "GitHub inbox"`, and `"button": { "label": "Inbox", "icon": "mods/github-inbox/inbox.svg" }`, which Herdr ignores and tab-bar reads) and its four icons, `issue.svg`, `pr.svg`, `comment.svg` and `inbox.svg` (Lucide, ISC, 24px viewBox, `stroke="currentColor"`), drawn by their path under the app folder, `mods/github-inbox/<name>.svg`.
+- **One mod**, `mods/github-inbox/`, with `main.js`, `mod.json` (`"place": "none"`, `"title": "GitHub inbox"`, and `"button": { "label": "Inbox", "icon": "mods/github-inbox/inbox.svg" }`, which Herdr ignores and tab-bar reads) and its four icons, `issue.svg`, `pr.svg`, `comment.svg` and `inbox.svg` (Lucide, ISC, 24px viewBox, `stroke="currentColor"`), drawn by their path under the app folder, `mods/github-inbox/<name>.svg`. The search box is its own module set beside them, `github-search/` (`index.js`, `search-box.js`, `suggestions.js`, `qualifiers.js`), which `main.js` imports by relative path.
 - **A key**, in `keys.json` beside it: `ctrl-shift-i` runs `tab.new { name: "Inbox", mod: "github-inbox" }`.
 - **An Inbox button**, recommended: the [tab-bar](../tab-bar/) mod (`herdr.dev/mods/jd-solanki/herdr-app-config--apps--tab-bar`) shows the button `mod.json` declares; pressing it goes to the open Inbox tab or opens one. Herdr's own tab bar can't take a button.
 - **Elements:** `View`, `div` and `svg` from `gpui-kit`; `v_flex`, `h_flex`, `Input`, `InputState` and `Popup` (anchored `top_left`, its content filled only while there are suggestions) from `gpui-base`; colors from `theme()`.

@@ -9,8 +9,6 @@ herdr.dev's public catalogue of mods and layouts, built from public GitHub repos
 
 - An app folder holds its TypeScript source in `src/`, its `mods/` (or layouts) with the
   committed build, its recipe, `preview.png`, `LICENSE` and `NOTICE`.
-- The build keeps only JSDoc and license comments, so a reason an installing agent needs goes
-  in the recipe, not only in a source comment.
 - `herdr-app check <mod folder>` loads a mod once with no props, so it misses bugs in rows
   and tabs. Test a change in the app.
 - The gallery lists every folder with a recipe in a public repo with the `herdr-mod` or

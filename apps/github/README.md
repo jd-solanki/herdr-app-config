@@ -1,6 +1,6 @@
-# Herdr GitHub tab
+# GitHub tab
 
-A GitHub tab for each Herdr space. It lists the issues and PRs of the repo that space
+A [Herdr app](https://herdr.dev) mod: a GitHub tab for each space. It lists the issues and PRs of the repo that space
 is in, and opens them inside the app, Mermaid diagrams and images included.
 
 ```mermaid
@@ -10,10 +10,23 @@ flowchart LR
     T --> M["mermaid-svg, draws diagrams"]
 ```
 
+![GitHub tab](preview.png)
+
+## Add it
+
+Tell your agent:
+
+```text
+Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--github
+```
+
+`ctrl-shift-g` opens it as a tab in the shown space. With [tab-bar](../tab-bar/) it also gets a
+**GitHub** button that goes back to the space's tab.
+
 ## Use
 
-`gh` runs in the space's repo, so the account follows that repo. `mermaid-svg` runs on `bun`;
-the first diagram needs network, because `bun` downloads Pele then.
+It needs `gh`, logged in, and `bun` for diagrams. `gh` runs in the space's repo, so the account
+follows that repo. The first diagram needs network, because `bun` downloads Pele then.
 
 - Click **GitHub**, or press `ctrl-shift-g`. It opens the space's GitHub tab, or goes
   back to it.
@@ -26,16 +39,9 @@ the first diagram needs network, because `bun` downloads Pele then.
 - Click a row's labels to pick them. It shows the first few labels; type to find the rest. Ticking does nothing until
   the picker closes, which saves every change in one call.
 - Images show as 🖼 links and as thumbnails under the post. Click either to see it full size; Esc closes it.
-- Click **Inbox** beside Changes, or press `ctrl-shift-i`, for the [GitHub inbox](../../../apps/github-inbox/) as a side panel.
 
-## Change it
+[RECIPE.md](RECIPE.md) describes it exactly, enough for an agent to build it again.
 
-`herdr-app check` runs a mod with no props, so it cannot catch a bug in the tab's space.
-Open the tab to test.
+## Credit
 
-Its button in the [tab bar](../../../apps/tab-bar/) comes from the `button` field in its
-`mod.json`.
-
-The `workspace` layout is a clone, so Herdr updates never reach it. To take an update, compare
-`layouts/workspace.json` with `~/.config/herdr-app/layouts/main.json`. Only the `mod`
-lines naming this repo's clones, the `tab-title` block and the `github-inbox` panel should differ.
+State icons from [Lucide](https://lucide.dev) (ISC). See [NOTICE](NOTICE).

@@ -1,21 +1,21 @@
 #!/bin/sh
-# Copies the mods (apps/ as they are in git, src/ as built), the layouts and mermaid-svg into
-# place, and binds the GitHub key.
-# `pnpm run setup` runs it after a build; `pnpm dev` after every rebuild, so Herdr reloads.
+# Copies every app's mod folder (its build, mod.json and art) and the layouts into place, and
+# binds the keys.
+# `pnpm run setup` runs it after a build; `pnpm dev` after every save, so Herdr reloads.
 set -eu
 cd "$(dirname "$0")/.."
 app="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
 
 # rm first: cp writes through a symlink, and an old stow link points back into a repo.
 # File by file, so what a mod keeps in its installed folder (spaces-avatars' .avatars/) stays.
-# apps/ last: it wins over any build left in dist/.
 place() { mkdir -p "$2"; rm -f "$2/$(basename "$1")"; cp "$1" "$2/"; }
 
-for file in dist/mods/*/* apps/*/mods/*/*; do
-  [ -f "$file" ] && place "$file" "$app/mods/$(basename "$(dirname "$file")")"
+# herdr-app check writes jsconfig.json and .d.ts files into a mod folder; they never install.
+find apps/*/mods -type f ! -name jsconfig.json ! -name '*.d.ts' | while read -r file; do
+  inside=${file#apps/*/mods/}
+  place "$file" "$app/mods/$(dirname "$inside")"
 done
 for file in src/layouts/*.json; do place "$file" "$app/layouts"; done
-place bin/mermaid-svg "$HOME/.local/bin"
 
 # keys.json is Herdr's own file, written on first start, so each app's keys and this setup's
 # own keys are upserted into it.

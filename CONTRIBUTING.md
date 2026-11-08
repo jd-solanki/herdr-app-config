@@ -9,10 +9,10 @@ from this repo.
 ## Status
 
 - Apps under `apps/` are published; the table in `README.md` lists them.
-- Source mods under `src/` and the `workspace` layout were built for the owner's setup, not
-  for publication, and may depend on each other. Each moves to `apps/` once it is made
-  publishable; then `src/` goes.
-- `packages/` is reserved for code apps may share. Whether and how apps use it is undecided.
+- The `workspace` layout under `src/layouts/` wires the apps into the owner's setup and is not
+  published.
+- `packages/` holds code apps share; each app's build copies what it imports into its mod
+  folder.
 
 ## Conventions
 

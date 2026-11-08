@@ -1,7 +1,7 @@
 # Glossary
 
-Mods and layouts for the Herdr app: published ones are apps in the gallery; the rest are
-source mods still built and installed from this repo.
+Mods and layouts for the Herdr app, published as apps in the gallery and installed from this
+repo.
 
 **Mod**:
 A folder Herdr loads as one view or behaviour: a `main.js` and its `mod.json`.
@@ -14,10 +14,6 @@ A JSON tree of blocks Herdr arranges its window from; each block names the mod i
 One gallery item under `apps/<name>/`: a mod or layout with its source, its committed build,
 recipe, preview, license and notice.
 _Avoid_: published mod
-
-**Source mod**:
-A mod under `src/` that is not yet an app; it builds into `dist/` before install.
-_Avoid_: unpublished mod, legacy mod
 
 **Recipe**:
 An app's `RECIPE.md`: the brief another agent builds the app from, from an empty folder.
@@ -46,5 +42,6 @@ The `tab-bar.labels` shared key: tab id to the label an unnamed tab shows, fille
 _Avoid_: tab titles, title override
 
 **Package**:
-Code more than one mod shares, under `packages/<name>/`; each mod's build inlines it.
+Code more than one app shares, under `packages/<name>/`; each app's build copies it into its
+mod folder.
 _Avoid_: library, shared module

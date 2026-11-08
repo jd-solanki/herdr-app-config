@@ -1,6 +1,16 @@
-import { mkdir, unlink, writeFile } from "fs/promises";
+import { mkdir, unlink } from "fs/promises";
 import { createHash, randomUUID } from "crypto";
-import { View, div, image, svg } from "gpui-kit";
+import {
+  View,
+  div,
+  image,
+  svg,
+  type AsyncContext,
+  type ClickEvent,
+  type Color,
+  type Context,
+  type Element,
+} from "gpui-kit";
 import { Input, InputState, Popover, TextView, h_flex, v_flex } from "gpui-base";
 import { ISSUE_QUALIFIERS, PULL_QUALIFIERS, SearchBox } from "@herdr-app-config/github-search";
 import {
@@ -14,7 +24,46 @@ import {
   shared,
   spaces,
   theme,
+  type SpaceInfo,
 } from "herdr";
+
+type Colors = Record<string, Color>;
+type Kind = keyof typeof KINDS;
+type Place = { cwd: string; on: string | null };
+type Login = { login: string };
+type Label = { name: string };
+type Work = {
+  number: number;
+  title: string;
+  author: Login;
+  labels: Label[];
+  state: "OPEN" | "CLOSED" | "MERGED";
+  url: string;
+  isDraft?: boolean;
+};
+type ListedWork = Work & { assignees: Login[] };
+type WorkDetail = Work & {
+  body: string;
+  comments: { author: Login; body: string }[];
+  headRefName?: string;
+  baseRefName?: string;
+  additions?: number;
+  deletions?: number;
+  changedFiles?: number;
+};
+type Diagram = { name: string; width: number; height: number };
+type Entry<T> = { value?: T; error?: string; retry?: boolean };
+type Cache<T> = Record<string, Entry<T>>;
+type LabelDraft = { applied: Set<string>; chosen: Set<string> };
+type ClickHandler = (event: ClickEvent, cx: Context) => void;
+type LinkHandler = (url: string, cx: Context) => void;
+type Sources = {
+  diagramOf: (source: string) => Entry<Diagram>;
+  pictureOf: (url: string) => Entry<string>;
+  onLink: LinkHandler;
+};
+// Herdr's runtime has the global URL; its generated types don't declare it.
+declare const URL: new (url: string) => { pathname: string };
 
 const REFRESH_MS = 60_000;
 
@@ -50,20 +99,8 @@ const KINDS = {
 const CODE_FENCE =
   /^ {0,3}(?=.*\r?\n)((`|~)\2{2,})(?!\2)(?!(?<=`).*`)[ \t]*(\S*)[^\n]*\n([\s\S]*?)(?:^ {0,3}\1\2*[ \t]*\r?$|(?![\s\S]))/gm;
 const DIAGRAM_FOLDER = "data/github/mermaid";
-const ICON_FOLDER = "data/github/icons";
-// Lucide (ISC). Written under the app folder at start, so the mod stays one built main.js.
-const STATE_ICONS = {
-  "issue-open": '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="10"/>',
-  "issue-closed": '<circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/>',
-  "pr-open":
-    '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/>',
-  "pr-draft":
-    '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 6V5"/><path d="M18 11v-1"/><line x1="6" x2="6" y1="9" y2="21"/>',
-  "pr-merged":
-    '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
-  "pr-closed":
-    '<path d="m15.5 3.5 5 5"/><path d="m15.5 8.5 5-5"/><path d="M18 11.62V15"/><path d="M6 9v12"/><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/>',
-};
+// Shipped beside main.js; the path names the mod's folder, so renaming the mod changes it too.
+const MOD_FOLDER = "mods/github";
 const IMAGE_FOLDER = "data/github/images";
 // TextView draws no images, so each becomes a link and a thumbnail. Groups: markdown alt, markdown URL, <img> src.
 const IMAGE = /!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)|<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
@@ -74,8 +111,27 @@ const CURL = `curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M
 const AUTHED_CURL = `gh auth token \${3:+-u "$3"} | sed 's/^/Authorization: token /' | ${CURL}`;
 
 export default class GitHub extends View {
-  init(_props, cx) {
-    const lastView = shared(LAST_VIEW_KEY);
+  declare spaceId: string;
+  declare kind: Kind;
+  declare query: string;
+  declare openWork: number | null;
+  declare listsByKey: Cache<ListedWork[]>;
+  declare detailsByKey: Cache<WorkDetail>;
+  declare diagramsByKey: Cache<Diagram>;
+  declare imagesByUrl: Cache<string>;
+  declare queue: { cache: Cache<unknown>; key: string; make: () => Promise<unknown> }[];
+  declare repoLabelsByKey: Cache<Label[]>;
+  declare labelDrafts: Map<number, LabelDraft>;
+  declare labelSearch: InputState;
+  declare search: SearchBox;
+  declare folder: Place | null;
+  declare place: Place | null;
+
+  init(_props: unknown, cx: AsyncContext) {
+    // A mod pane can't see its own tab, so without props.space it takes the space shown when it
+    // starts: a key or tab.new opens it in the active space.
+    this.spaceId = props()?.space ?? spaces().find((space) => space.active)?.id;
+    const lastView = shared(LAST_VIEW_KEY) as { kind?: Kind; query?: unknown } | null;
     this.kind = KINDS[lastView?.kind] ? lastView.kind : "issues";
     this.query = typeof lastView?.query === "string" ? lastView.query : PRESETS[0].query;
     this.openWork = null;
@@ -86,7 +142,7 @@ export default class GitHub extends View {
     this.queue = [];
     this.repoLabelsByKey = {};
     // The open label pickers' choices, by work number: closing one picker and opening the next can report in either order.
-    this.labelDrafts = new Map();
+    this.labelDrafts = new Map<number, LabelDraft>();
     this.labelSearch = InputState.new({ placeholder: "Search labels" });
     this.labelSearch.on("change", (_e, cx) => cx.notify());
     this.search = new SearchBox({
@@ -99,19 +155,6 @@ export default class GitHub extends View {
       submit: (query, cx) => this.setQuery(query, cx),
     });
     cx.timer.every(REFRESH_MS, (cx) => this.refresh(cx));
-    // The table waits for the icons: an svg() drawn before its file exists stays blank.
-    this.iconsReady = false;
-    cx.spawn(async (cx) => {
-      await writeStateIcons().catch((error) =>
-        notify({
-          title: "Could not write the GitHub state icons",
-          body: error.message,
-          level: "error",
-        }),
-      );
-      this.iconsReady = true;
-      cx.notify();
-    });
   }
 
   listKey() {
@@ -130,11 +173,11 @@ export default class GitHub extends View {
     return this.repoLabelsByKey[this.repoLabelsKey()];
   }
 
-  loadRepoLabels(cx) {
+  loadRepoLabels(cx: Context) {
     this.load(this.repoLabelsByKey, this.repoLabelsKey(), () => listRepoLabels(this.place), cx);
   }
 
-  refresh(cx) {
+  refresh(cx: Context) {
     const { place, kind, query, openWork } = this;
     if (!place) return;
     this.flagFailures();
@@ -154,24 +197,24 @@ export default class GitHub extends View {
     }
   }
 
-  load(cache, key, fetchLatest, cx) {
+  load<T>(cache: Cache<T>, key: string, fetchLatest: () => Promise<T>, cx: Context) {
     cx.spawn(async (cx) => {
       await this.settle(cache, key, fetchLatest);
       cx.notify();
     });
   }
 
-  async settle(cache, key, fetchLatest) {
+  async settle<T>(cache: Cache<T>, key: string, fetchLatest: () => Promise<T>) {
     try {
       cache[key] = { value: await fetchLatest() };
     } catch (error) {
       // A network blip keeps the last good result.
-      if (!cache[key]?.value) cache[key] = { error: error.message };
+      if (!cache[key]?.value) cache[key] = { error: (error as Error).message };
     }
   }
 
   // Fetched text sets the job count, and cx.spawn throws at 1024 outstanding host tasks.
-  drainQueue(cx) {
+  drainQueue(cx: Context) {
     cx.spawn(async (cx) => {
       while (this.queue.length) {
         const { cache, key, make } = this.queue[0];
@@ -182,7 +225,7 @@ export default class GitHub extends View {
     });
   }
 
-  setQuery(query, cx) {
+  setQuery(query: string, cx: Context) {
     this.query = query;
     this.search.set(query);
     this.rememberView();
@@ -190,7 +233,7 @@ export default class GitHub extends View {
     cx.notify();
   }
 
-  setKind(kind, cx) {
+  setKind(kind: Kind, cx: Context) {
     this.kind = kind;
     this.labelDrafts.clear();
     this.search.close();
@@ -203,14 +246,14 @@ export default class GitHub extends View {
     setShared(LAST_VIEW_KEY, { kind: this.kind, query: this.query });
   }
 
-  showWork(number, cx) {
+  showWork(number: number | null, cx: Context) {
     this.search.close();
     this.openWork = number;
     this.refresh(cx);
     cx.notify();
   }
 
-  openLabelPicker(work, cx) {
+  openLabelPicker(work: Work, cx: Context) {
     // The open-time labels are the diff base: a refresh while open must not turn into edits.
     const applied = new Set(work.labels.map(({ name }) => name));
     this.labelDrafts.set(work.number, { applied, chosen: new Set(applied) });
@@ -221,13 +264,13 @@ export default class GitHub extends View {
     cx.notify();
   }
 
-  toggleDraftLabel(number, name, cx) {
+  toggleDraftLabel(number: number, name: string, cx: Context) {
     const { chosen } = this.labelDrafts.get(number);
     if (!chosen.delete(name)) chosen.add(name);
     cx.notify();
   }
 
-  applyLabelDraft(work, cx) {
+  applyLabelDraft(work: Work, cx: Context) {
     const { kind, place } = this;
     const draft = this.labelDrafts.get(work.number);
     this.labelDrafts.delete(work.number);
@@ -242,14 +285,14 @@ export default class GitHub extends View {
       } catch (error) {
         notify({
           title: `Could not change labels on #${work.number}`,
-          body: error.message,
+          body: (error as Error).message,
           level: "error",
         });
       }
     });
   }
 
-  queued(cache, key, make, cx) {
+  queued<T>(cache: Cache<T>, key: string, make: () => Promise<T>, cx: Context) {
     const known = cache[key];
     if (!known || known.retry) {
       cache[key] = { error: known?.error };
@@ -259,7 +302,7 @@ export default class GitHub extends View {
     return cache[key];
   }
 
-  diagram(source, palette, cx) {
+  diagram(source: string, palette: string, cx: Context) {
     return this.queued(
       this.diagramsByKey,
       JSON.stringify([source, palette]),
@@ -268,13 +311,13 @@ export default class GitHub extends View {
     );
   }
 
-  picture(url, cx) {
+  picture(url: string, cx: Context) {
     const { place } = this;
     return this.queued(this.imagesByUrl, url, () => downloadImage(url, place), cx);
   }
 
   // A link to a downloaded image opens it here; any other link, in the browser.
-  openLink(url, cx) {
+  openLink(url: string, cx: Context) {
     const name = this.imagesByUrl[url]?.value;
     if (name) return showImage(name);
     // open_url refuses anything but an http/https URL, so a file:// or custom-scheme link does nothing.
@@ -283,8 +326,8 @@ export default class GitHub extends View {
     } catch {}
   }
 
-  followSpace(cx) {
-    const space = spaces().find(({ id }) => id === props()?.space);
+  followSpace(cx: Context) {
+    const space = spaces().find(({ id }) => id === this.spaceId);
     const folder = space ? terminalFolder(space) : null;
     if (JSON.stringify(folder) === JSON.stringify(this.folder)) return;
     this.folder = folder;
@@ -300,10 +343,10 @@ export default class GitHub extends View {
     });
   }
 
-  render(cx) {
-    const colors = theme();
+  render(cx: Context) {
+    const colors = theme() as Colors;
     // The full-size dialog showImage opens.
-    const shown = props()?.image;
+    const shown: string | undefined = props()?.image;
     if (shown)
       return div()
         .size_full()
@@ -321,7 +364,7 @@ export default class GitHub extends View {
       .child(page);
   }
 
-  listPage(colors) {
+  listPage(colors: Colors) {
     return v_flex()
       .size_full()
       .min_h(0)
@@ -333,7 +376,7 @@ export default class GitHub extends View {
       .child(this.results(colors));
   }
 
-  kindTabs(colors) {
+  kindTabs(colors: Colors) {
     return h_flex()
       .flex_none()
       .gap(6)
@@ -343,14 +386,14 @@ export default class GitHub extends View {
             `kind-${kind}`,
             label,
             kind === this.kind,
-            (_e, cx) => this.setKind(kind, cx),
+            (_e, cx) => this.setKind(kind as Kind, cx),
             colors,
           ),
         ),
       );
   }
 
-  presets(colors) {
+  presets(colors: Colors) {
     return h_flex()
       .flex_none()
       .gap(6)
@@ -367,18 +410,17 @@ export default class GitHub extends View {
       );
   }
 
-  results(colors) {
+  results(colors: Colors) {
     const list = this.listsByKey[this.listKey()];
     if (!list?.value) return notice(list?.error ?? "Loading…", colors);
-    if (!this.iconsReady) return notice("Loading…", colors);
     // Herdr sends no close for a popover whose row is gone, so its draft would reopen on the next row with that number.
     for (const number of this.labelDrafts.keys())
       if (!list.value.some((work) => work.number === number)) this.labelDrafts.delete(number);
-    const labelsCell = (work) => this.labelsCell(work, colors);
+    const labelsCell = (work: ListedWork) => this.labelsCell(work, colors);
     return workTable(list.value, ({ number }, cx) => this.showWork(number, cx), labelsCell, colors);
   }
 
-  labelsCell(work, colors) {
+  labelsCell(work: Work, colors: Colors) {
     const isOpen = this.labelDrafts.has(work.number);
     const chips = div()
       .id(`labels-${work.number}`)
@@ -409,7 +451,7 @@ export default class GitHub extends View {
       .child(picker);
   }
 
-  labelPicker(work, colors) {
+  labelPicker(work: Work, colors: Colors) {
     const picker = v_flex()
       .id("label-picker")
       .w(LABELS_WIDTH)
@@ -472,7 +514,7 @@ export default class GitHub extends View {
     );
   }
 
-  detailPage(cx, colors) {
+  detailPage(cx: Context, colors: Colors) {
     const { value: work, error } = this.detailsByKey[this.detailKey()] ?? {};
     const page = v_flex()
       .size_full()
@@ -483,7 +525,7 @@ export default class GitHub extends View {
     if (!work) return page.child(notice(error ?? "Loading…", colors));
     // Once per page: a theme() per block exhausts the render budget at 2,000 blocks.
     const palette = JSON.stringify(mermaidPalette(colors));
-    const sources = {
+    const sources: Sources = {
       diagramOf: (source) => this.diagram(source, palette, cx),
       pictureOf: (url) => this.picture(url, cx),
       onLink: (url, cx) => this.openLink(url, cx),
@@ -493,29 +535,31 @@ export default class GitHub extends View {
 }
 
 // A space's repo is its first terminal's, as in the shipped `spaces` mod.
-function terminalFolder(space) {
+function terminalFolder(space: SpaceInfo): Place {
   const tabs = new Set(space.tabs.map((tab) => tab.id));
   const cwd = panes().find((pane) => tabs.has(pane.tab) && pane.cwd)?.cwd || space.folder;
   return { cwd, on: space.machine };
 }
 
 // A `cd` inside the repo moves the terminal, not the page.
-async function repoRoot({ cwd, on }) {
-  const top = await exec("git", ["rev-parse", "--show-toplevel"], { cwd, on }).catch(() => null);
+async function repoRoot({ cwd, on }: Place): Promise<Place> {
+  const top = await exec("git", ["rev-parse", "--show-toplevel"], { cwd, on }).catch(
+    (): null => null,
+  );
   return { cwd: top?.code === 0 ? top.stdout.trim() : cwd, on };
 }
 
-async function stdoutOf(command, args, options) {
+async function stdoutOf(command: string, args: string[], options?: Place) {
   const result = await exec(command, args, options);
   if (result.code !== 0)
     throw new Error(result.stderr.trim() || `${command} exited ${result.code}`);
   return result.stdout;
 }
 
-const gh = (args, place) => stdoutOf("gh", args, place);
+const gh = (args: string[], place?: Place) => stdoutOf("gh", args, place);
 
 // `--state all`: the search query owns the state, so `is:closed` works.
-function listWork(kind, query, place) {
+function listWork(kind: Kind, query: string, place: Place): Promise<ListedWork[]> {
   const { command, listFields } = KINDS[kind];
   return gh(
     [command, "list", "--state", "all", "--search", query, "--limit", "100", "--json", listFields],
@@ -523,15 +567,15 @@ function listWork(kind, query, place) {
   ).then(JSON.parse);
 }
 
-function listRepoLabels(place) {
+function listRepoLabels(place: Place): Promise<Label[]> {
   // shortcut: labels past 200 do not show, page through them if a repo has more.
   return gh(["label", "list", "--limit", "200", "--json", "name"], place).then(JSON.parse);
 }
 
 // gh reads each label flag as one CSV record, so every name is a quoted field.
-const csv = (names) => names.map((name) => `"${name.replaceAll('"', '""')}"`).join(",");
+const csv = (names: string[]) => names.map((name) => `"${name.replaceAll('"', '""')}"`).join(",");
 
-function labelEditArgs(applied, chosen) {
+function labelEditArgs(applied: Set<string>, chosen: Set<string>) {
   const added = [...chosen].filter((name) => !applied.has(name));
   const removed = [...applied].filter((name) => !chosen.has(name));
   return [
@@ -540,35 +584,23 @@ function labelEditArgs(applied, chosen) {
   ];
 }
 
-function viewWork(kind, number, place) {
+function viewWork(kind: Kind, number: number, place: Place): Promise<WorkDetail> {
   const { command, viewFields } = KINDS[kind];
   return gh([command, "view", String(number), "--json", viewFields], place).then(JSON.parse);
 }
 
-const repoOf = (url) => new URL(url).pathname.split("/").slice(1, 3).join("/");
+const repoOf = (url: string) => new URL(url).pathname.split("/").slice(1, 3).join("/");
 
 // Runs here, not on the space's machine: the browser is on this one.
-async function openInBrowser({ number, url }) {
+async function openInBrowser({ number, url }: Work) {
   try {
     await gh(["browse", "--repo", repoOf(url), String(number)]);
   } catch (error) {
-    notify({ title: `Could not open #${number}`, body: error.message, level: "error" });
+    notify({ title: `Could not open #${number}`, body: (error as Error).message, level: "error" });
   }
 }
 
-async function writeStateIcons() {
-  const folder = `${appHome()}/${ICON_FOLDER}`;
-  await mkdir(folder, { recursive: true });
-  const svgOf = (shapes) =>
-    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${shapes}</svg>`;
-  await Promise.all(
-    Object.entries(STATE_ICONS).map(([name, shapes]) =>
-      writeFile(`${folder}/${name}.svg`, svgOf(shapes)),
-    ),
-  );
-}
-
-async function downloadImage(url, place) {
+async function downloadImage(url: string, place: Place) {
   const folder = `${appHome()}/${IMAGE_FOLDER}`;
   // A stable file name per URL.
   const name = createHash("sha256").update(url).digest("hex");
@@ -599,17 +631,22 @@ async function downloadImage(url, place) {
   }
 }
 
-function showImage(name) {
+function showImage(name: string) {
   openOverlay({ mod: "github", kind: "dialog", width: 0.9, height: 0.9, props: { image: name } });
 }
 
-async function renderMermaid(source, palette) {
+async function renderMermaid(source: string, palette: string): Promise<Diagram> {
   return JSON.parse(
-    await stdoutOf("mermaid-svg", [source, palette, `${appHome()}/${DIAGRAM_FOLDER}`]),
+    await stdoutOf("bun", [
+      `${appHome()}/${MOD_FOLDER}/mermaid-svg`,
+      source,
+      palette,
+      `${appHome()}/${DIAGRAM_FOLDER}`,
+    ]),
   );
 }
 
-function mermaidPalette(colors) {
+function mermaidPalette(colors: Colors) {
   return {
     "--pele-bg": colors.background,
     "--pele-fg": colors.foreground,
@@ -622,11 +659,11 @@ function mermaidPalette(colors) {
   };
 }
 
-function notice(text, colors) {
+function notice(text: string, colors: Colors) {
   return div().p(4).text_color(colors.muted).child(text);
 }
 
-function chip(id, label, on, action, colors) {
+function chip(id: string, label: string, on: boolean, action: ClickHandler, colors: Colors) {
   return div()
     .id(id)
     .flex_none()
@@ -646,7 +683,7 @@ function chip(id, label, on, action, colors) {
 }
 
 // Only PRs are fetched with isDraft.
-function statusOf(work) {
+function statusOf(work: Work) {
   const isPull = "isDraft" in work;
   if (work.state === "MERGED") return { label: "Merged", color: "ansi5", icon: "pr-merged" };
   if (work.state === "CLOSED")
@@ -659,17 +696,17 @@ function statusOf(work) {
   return { label: "Open", color: "ansi2", icon: isPull ? "pr-open" : "issue-open" };
 }
 
-function statusIcon(work, colors) {
+function statusIcon(work: Work, colors: Colors) {
   const { label, color, icon } = statusOf(work);
   return div()
     .id(`status-${work.number}`)
     .flex_none()
     .tooltip(label)
     .accessibility_label(label)
-    .child(svg(`${ICON_FOLDER}/${icon}.svg`).size(16).text_color(colors[color]));
+    .child(svg(`${MOD_FOLDER}/${icon}.svg`).size(16).text_color(colors[color]));
 }
 
-function statusPill(work, colors) {
+function statusPill(work: Work, colors: Colors) {
   const { label, color } = statusOf(work);
   return div()
     .flex_none()
@@ -684,7 +721,12 @@ function statusPill(work, colors) {
     .child(label);
 }
 
-function workTable(works, onOpen, labelsCell, colors) {
+function workTable(
+  works: ListedWork[],
+  onOpen: (work: ListedWork, cx: Context) => void,
+  labelsCell: (work: ListedWork) => Element,
+  colors: Colors,
+) {
   return v_flex()
     .flex_1()
     .min_h(0)
@@ -702,7 +744,7 @@ function workTable(works, onOpen, labelsCell, colors) {
     );
 }
 
-function tableHeading(colors) {
+function tableHeading(colors: Colors) {
   return h_flex()
     .h(34)
     .flex_none()
@@ -718,15 +760,20 @@ function tableHeading(colors) {
     .child(column(ASSIGNEES_WIDTH).child(caption("ASSIGNEES", colors)));
 }
 
-function column(width) {
+function column(width: number) {
   return div().w(width).flex_none();
 }
 
-function caption(text, colors) {
+function caption(text: string, colors: Colors) {
   return div().text_size(11).font_semibold().text_color(colors.dim).child(text);
 }
 
-function tableRow(work, onOpen, labelsCell, colors) {
+function tableRow(
+  work: ListedWork,
+  onOpen: (work: ListedWork, cx: Context) => void,
+  labelsCell: (work: ListedWork) => Element,
+  colors: Colors,
+) {
   const assignees = work.assignees.map(({ login }) => login).join(", ");
   return h_flex()
     .id(`work-${work.number}`)
@@ -765,7 +812,7 @@ function tableRow(work, onOpen, labelsCell, colors) {
     );
 }
 
-function context(work, colors) {
+function context(work: Work, colors: Colors) {
   return h_flex()
     .gap(10)
     .items_center()
@@ -775,7 +822,7 @@ function context(work, colors) {
     .child(div().flex_none().child(repoOf(work.url).split("/")[1]));
 }
 
-function labelChip(label, colors) {
+function labelChip(label: Label, colors: Colors) {
   return div()
     .flex_none()
     .px(7)
@@ -787,7 +834,7 @@ function labelChip(label, colors) {
     .child(label.name);
 }
 
-function detailBar(number, work, onBack, colors) {
+function detailBar(number: number, work: WorkDetail, onBack: ClickHandler, colors: Colors) {
   return h_flex()
     .flex_none()
     .gap(10)
@@ -809,7 +856,7 @@ function detailBar(number, work, onBack, colors) {
     );
 }
 
-function barButton(id, text, action, colors) {
+function barButton(id: string, text: string, action: ClickHandler, colors: Colors) {
   return div()
     .id(id)
     .flex_none()
@@ -826,7 +873,7 @@ function barButton(id, text, action, colors) {
     .child(text);
 }
 
-function facts(work, colors) {
+function facts(work: WorkDetail, colors: Colors) {
   const items = [work.author.login, ...work.labels.map(({ name }) => name), ...pullFacts(work)];
   return h_flex()
     .flex_none()
@@ -836,7 +883,7 @@ function facts(work, colors) {
     .children(items.map((item) => div().flex_none().child(item)));
 }
 
-function pullFacts(work) {
+function pullFacts(work: WorkDetail) {
   if (!work.headRefName) return [];
   return [
     `${work.headRefName} → ${work.baseRefName}`,
@@ -845,8 +892,9 @@ function pullFacts(work) {
   ];
 }
 
-function conversation(work, sources, colors) {
-  const postOf = (id, author, body) => post(author, bodyParts(id, body, sources, colors), colors);
+function conversation(work: WorkDetail, sources: Sources, colors: Colors) {
+  const postOf = (id: string, author: string, body: string) =>
+    post(author, bodyParts(id, body, sources, colors), colors);
   return v_flex()
     .id("work-posts")
     .flex_1()
@@ -861,7 +909,7 @@ function conversation(work, sources, colors) {
     );
 }
 
-function post(author, parts, colors) {
+function post(author: string, parts: (Element | string)[], colors: Colors) {
   return v_flex()
     .flex_none()
     .rounded(8)
@@ -882,8 +930,8 @@ function post(author, parts, colors) {
 }
 
 // Diagram sources sit at odd indexes.
-function splitDiagrams(body) {
-  const parts = [];
+function splitDiagrams(body: string) {
+  const parts: string[] = [];
   let cursor = 0;
   for (const match of body.matchAll(CODE_FENCE)) {
     if (match[3] !== "mermaid") continue;
@@ -894,9 +942,14 @@ function splitDiagrams(body) {
   return parts;
 }
 
-function bodyParts(id, body, { diagramOf, pictureOf, onLink }, colors) {
-  const urls = new Set();
-  const imageLink = (imageUrl, alt, href = imageUrl) => {
+function bodyParts(
+  id: string,
+  body: string,
+  { diagramOf, pictureOf, onLink }: Sources,
+  colors: Colors,
+) {
+  const urls = new Set<string>();
+  const imageLink = (imageUrl: string, alt: string, href = imageUrl) => {
     urls.add(imageUrl);
     return `[🖼 ${alt.replace(/[[\]]/g, "") || "image"}](${href})`;
   };
@@ -925,11 +978,11 @@ function bodyParts(id, body, { diagramOf, pictureOf, onLink }, colors) {
   ];
 }
 
-function markdown(id, text, onLink) {
+function markdown(id: string, text: string, onLink: LinkHandler) {
   return TextView.markdown(id, text).selectable().on_link_click(onLink);
 }
 
-function thumbnail(id, { value, error }, colors) {
+function thumbnail(id: string, { value, error }: Entry<string>, colors: Colors) {
   const frame = div()
     .id(id)
     .flex_none()
@@ -952,7 +1005,13 @@ function thumbnail(id, { value, error }, colors) {
     .child(image(`${IMAGE_FOLDER}/${value}`).size_full());
 }
 
-function diagramPart(id, source, { value, error }, onLink, colors) {
+function diagramPart(
+  id: string,
+  source: string,
+  { value, error }: Entry<Diagram>,
+  onLink: LinkHandler,
+  colors: Colors,
+) {
   if (value) {
     return div()
       .id(id)

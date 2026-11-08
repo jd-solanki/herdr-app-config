@@ -1,28 +1,26 @@
 # Build and install
 
-confidence: provisional — source mods empty into `apps/` as each is published, then `src/`
-goes.
+confidence: provisional — the type-stripping build is new, and the `workspace` layout is not an
+app yet.
 
 ## Rules
 
-- Code two mods share lives in `packages/<name>/` as a workspace package; each mod's build
-  inlines it.
+- Code two apps share lives in `packages/<name>/` as a workspace package; each app's build
+  copies what it imports into its mod folder.
 - `types/` is Herdr's generated API. Refresh it with the `types` script after a Herdr
   update; never edit it by hand.
 
 ## Reasons
 
-- Apps build in place, into the `mods/` folder the gallery publishes; source mods build into
-  `dist/`, which install copies.
+- An app builds by stripping types only, file by file, never by bundling or minifying: the
+  published code is what an installing agent reads and edits, so it keeps every comment and
+  the shape of the source, and a clone diffs line for line against Herdr's original.
 
 ## Fences
 
 - **A mod is self-contained.** Herdr refuses an import that resolves outside the mod's own
-  folder, so `packages/` code is inlined into each build, never split into chunks. Herdr
-  supplies every other bare import at run time, so only `@herdr-app-config/*` is bundled.
-  `vite.config.ts:MOD_BUILD`
-- **Apps install last.** A stale `dist/` build of a mod that moved to `apps/` would
-  otherwise overwrite the app. `scripts/install.sh`
+  folder, so the build copies each `@herdr-app-config/*` package an app imports into the mod
+  folder and points the import there. `scripts/build-apps.mjs:strip`
 - **Install copies file by file.** Replacing a mod's folder would delete what the mod
   writes into its installed folder, such as spaces-avatars' avatar cache.
   `scripts/install.sh:place`
@@ -31,5 +29,5 @@ goes.
 
 ## Where it lives
 
-`scripts/install.sh`, `scripts/install-on-save.mjs`, `scripts/check-built.sh`, `vite.config.ts`, `tsconfig.json`,
-`pnpm-workspace.yaml`, `types/`, `src/`, `packages/`
+`scripts/build-apps.mjs`, `scripts/install.sh`, `scripts/install-on-save.mjs`,
+`scripts/check-built.sh`, `tsconfig.json`, `pnpm-workspace.yaml`, `types/`, `packages/`

@@ -52,14 +52,14 @@ keep its detail behind one seam. `exploratory`: argue with it before building on
 The word moves when the owner's decision moves, in the same pull request as the code it
 governs.
 
-| Reference                      | Load when                                                                                                                                          |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `glossary.md`                  | always                                                                                                                                             |
-| `domains/build-and-install.md` | building or installing mods and layouts, changing `pnpm dev`, the type-check setup or `types/`, moving a source mod to `apps/`, adding shared code |
-| `domains/gallery-apps.md`      | creating, changing or publishing an app, or writing its recipe or preview                                                                          |
-| `domains/spaces-avatars.md`    | changing the Spaces list app; with gallery-apps.md                                                                                                 |
-| `domains/agent-triage.md`      | changing the Agents list app; with gallery-apps.md                                                                                                 |
-| `domains/github-inbox.md`      | changing the GitHub inbox app; with gallery-apps.md                                                                                                |
-| `domains/github.md`            | changing the GitHub tab mod or `mermaid-svg`; with build-and-install.md                                                                            |
-| `domains/tab-title.md`         | changing the Tab title app; with gallery-apps.md                                                                                                   |
-| `domains/tab-bar.md`           | changing the Tab bar app, or giving a mod a tab bar button or tab label; with gallery-apps.md                                                      |
+| Reference                      | Load when                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `glossary.md`                  | always                                                                                                             |
+| `domains/build-and-install.md` | building or installing apps and layouts, changing `pnpm dev`, the type-check setup or `types/`, adding shared code |
+| `domains/gallery-apps.md`      | creating, changing or publishing an app, or writing its recipe or preview                                          |
+| `domains/spaces-avatars.md`    | changing the Spaces list app; with gallery-apps.md                                                                 |
+| `domains/agent-triage.md`      | changing the Agents list app; with gallery-apps.md                                                                 |
+| `domains/github-inbox.md`      | changing the GitHub inbox app; with gallery-apps.md                                                                |
+| `domains/github.md`            | changing the GitHub tab app or `mermaid-svg`; with gallery-apps.md                                                 |
+| `domains/tab-title.md`         | changing the Tab title app; with gallery-apps.md                                                                   |
+| `domains/tab-bar.md`           | changing the Tab bar app, or giving a mod a tab bar button or tab label; with gallery-apps.md                      |

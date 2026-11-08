@@ -14,17 +14,17 @@ mod first, tells you what it runs, then adds it.
 | [GitHub inbox](./apps/github-inbox)          | Open issues and PRs from every repo, from one GitHub search                      | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--github-inbox`   |
 | [Tab bar](./apps/tab-bar)                    | Replaces the tab bar: other mods add buttons and tab labels to it                | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--tab-bar`        |
 | [Tab title](./apps/tab-title)                | A tab named `#123` takes that issue's or PR's title; an unnamed tab, its agent's | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--tab-title`      |
+| [GitHub tab](./apps/github)                  | A GitHub tab per space: issues and PRs, read in the app                          | `Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--github`         |
 
 Spaces with avatars and Agent triage pair: with both, Agent triage shows each space's avatar
-and repo name. Tab bar pairs with GitHub inbox, which adds its Inbox button, and with Tab title,
+and repo name. Tab bar pairs with GitHub tab and GitHub inbox, which add their buttons, and with Tab title,
 which labels unnamed tabs.
 
 ## Not published yet
 
-| Mod or layout                           | What it does                                            |
-| --------------------------------------- | ------------------------------------------------------- |
-| [`github`](./src/mods/github/README.md) | A GitHub tab per space: issues and PRs, read in the app |
-| `src/layouts/workspace.json`            | Herdr's `main` layout wired to all of the above         |
+| Mod or layout                                           | What it does                                    |
+| ------------------------------------------------------- | ----------------------------------------------- |
+| [`src/layouts/workspace.json`](./src/layouts/README.md) | Herdr's `main` layout wired to all of the above |
 
 ## Setup
 
@@ -38,7 +38,7 @@ pnpm run setup
 ```
 
 `setup` builds every mod and runs `scripts/install.sh`, which copies every
-mod, the layouts and `bin/mermaid-svg` into place and binds `ctrl-shift-g` to the GitHub tab and `ctrl-shift-i` to the inbox.
+mod and the layouts into place and binds `ctrl-shift-g` to the GitHub tab and `ctrl-shift-i` to the inbox.
 Open the Herdr app once before it, so `keys.json` exists. Then press `ctrl-shift-l`
 (`cmd-shift-l` on the Mac) until the `workspace` layout shows.
 

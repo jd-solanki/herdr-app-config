@@ -1,0 +1,8 @@
+GitHub tab (github)
+Copyright jd-solanki
+
+The issue and pull request state icons are from Lucide (https://lucide.dev), Copyright Lucide
+Contributors, licensed under the ISC License.
+
+`mermaid-svg` draws Mermaid diagrams with Pele (https://www.npmjs.com/package/pele), which Bun
+downloads on its first run; Pele is not part of this mod.

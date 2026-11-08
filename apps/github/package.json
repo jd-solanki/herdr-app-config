@@ -1,0 +1,11 @@
+{
+  "name": "@herdr-app-config/github",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Herdr GitHub tab: a space's issues and PRs, read in the app, Mermaid diagrams and images included",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@herdr-app-config/github-search": "workspace:*"
+  }
+}

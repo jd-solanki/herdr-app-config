@@ -1,0 +1,35 @@
+{
+  "name": "herdr-app-config",
+  "version": "0.0.0",
+  "private": "true",
+  "description": "Herdr app customizations: mods, layouts and their install",
+  "homepage": "https://github.com/jd-solanki/herdr-app-config#readme",
+  "license": "MIT",
+  "author": "jd-solanki",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jd-solanki/herdr-app-config.git"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch --on-success 'sh scripts/install.sh'",
+    "test": "vp test",
+    "check": "vp check",
+    "prepare": "vp config",
+    "setup": "vp pack && sh scripts/install.sh",
+    "types": "cp \"${HERDR_APP_HOME:-$HOME/.config/herdr-app}\"/gpui-kit.d.ts \"${HERDR_APP_HOME:-$HOME/.config/herdr-app}\"/herdr.d.ts types/"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.18.0",
+      "onFail": "download"
+    }
+  }
+}

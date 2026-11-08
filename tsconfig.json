@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "lib": ["es2023"],
+    "moduleDetection": "force",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    // Herdr's runtime is not Node: its globals and modules come from types/, which `pnpm run types` refreshes.
+    "types": [],
+    "paths": { "herdr": ["./types/herdr.d.ts"] },
+    "allowJs": true,
+    "strict": true,
+    // Herdr's own call: a view sets its fields in init(), which TypeScript cannot see as definite assignment.
+    "strictNullChecks": false,
+    "noUnusedLocals": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "types"]
+}

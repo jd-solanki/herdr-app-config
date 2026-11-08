@@ -1,0 +1,41 @@
+#!/usr/bin/env bun
+// mermaid-svg <source> <palette json> <folder>
+// Bun installs the pinned import on first run, unless a node_modules sits above this file.
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { render } from "pele@1.13.0";
+
+const MAX_VARIABLE_DEPTH = 4;
+
+const [source, palette, folder] = process.argv.slice(2);
+const { svg, width, height } = renderOrExit(source);
+const drawable = inlineVariables(svg, JSON.parse(palette));
+const name = `${createHash("sha256").update(drawable).digest("hex")}.svg`;
+mkdirSync(folder, { recursive: true });
+writeFileSync(join(folder, name), drawable);
+console.log(JSON.stringify({ name, width, height }));
+
+// Pele colors with CSS variables, which SVG image renderers ignore.
+function inlineVariables(svg, palette) {
+  // Author text also lands in the SVG, so declarations come from Pele's root tag alone.
+  const rootStyle = svg.match(/^<svg[^>]*?\sstyle="([^"]*)"/)[1];
+  const declared = Object.fromEntries([...rootStyle.matchAll(/(--[\w-]+):([^;]+)/g)].map(([, name, value]) => [name, value]));
+  const values = { ...declared, ...palette };
+  let inlined = svg;
+  for (let depth = 0; depth < MAX_VARIABLE_DEPTH; depth++) {
+    inlined = inlined.replace(/<[^>]*>/g, (tag) =>
+      tag.replace(/var\((--[\w-]+)(?:,([^()]*))?\)/g, (_, name, fallback) => values[name] ?? fallback ?? ""));
+  }
+  return inlined;
+}
+
+// Uncaught, Bun prints minified Pele source, and the github mod shows stderr to the reader.
+function renderOrExit(source) {
+  try {
+    return render(source);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}

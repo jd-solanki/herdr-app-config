@@ -16,6 +16,7 @@ import {
   props,
   watchFolder,
 } from "herdr";
+import { IssueTabs, agentTitles } from "./tab-names.js";
 
 // A mod declares its tab bar button in its own mod.json, read here, because a mod runs only
 // while shown: a button it registered itself could never open it.
@@ -53,6 +54,7 @@ export default class Tabs extends View {
     this.pending = null;
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
     this.declared = [];
+    this.issueTabs = new IssueTabs();
     cx.spawn(async (cx) => {
       const mods = `${appHome()}/mods`;
       for (;;) {
@@ -145,13 +147,13 @@ export default class Tabs extends View {
     localStorage.setItem("panels", JSON.stringify(this.panels));
   }
 
-  render() {
+  render(cx) {
+    this.issueTabs.renameIssueTabs(cx);
     // herdr.d.ts types the theme as plain strings; its values are #rrggbb colors.
     const t = theme();
     const space = spaces().find((p) => p.active);
     const shown = space?.tabs ?? [];
-    // Any mod may fill this slot: tab id to the label an unnamed tab shows.
-    const labels = shared("tab-bar.labels") ?? {};
+    const titles = agentTitles();
     const stop = (_e, cx) => cx.stop_propagation();
     const button = (id, label, action) =>
       div()
@@ -173,7 +175,7 @@ export default class Tabs extends View {
         panes().find((p) => p.tab === c.id)
       )?.program;
       const auto = !c.named || c.name === program?.name;
-      const name = !auto ? c.name : (labels[c.id] ?? program?.name ?? "Terminal");
+      const name = !auto ? c.name : (titles[c.id] ?? program?.name ?? "Terminal");
       return h_flex()
         .id(`tab-${c.id}`)
         .h(29)

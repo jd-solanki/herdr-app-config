@@ -11,5 +11,6 @@ Modified by jd-solanki. Changes from the original:
   their own `mod.json`; `props.buttons` on its layout block picks and orders them.
 - A declared button toggles the mod's side panel when the layout has one, else goes to the
   space's tab showing that mod or opens one; `tab-bar.<mod>` keys press it.
-- An unnamed tab shows the label another mod puts in the `tab-bar.labels` shared key.
+- An unnamed tab shows its agent's own title, and a tab named `#<number>` takes that GitHub
+  issue's or pull request's title, looked up with `gh`.
 - JSDoc types for checking against Herdr's type files.

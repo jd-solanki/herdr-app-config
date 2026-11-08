@@ -178,16 +178,6 @@
           "content": {
             "mod": "workspace-status"
           }
-        },
-        {
-          "id": "tab-title",
-          "type": "block",
-          "size": {
-            "px": 0
-          },
-          "content": {
-            "mod": "tab-title"
-          }
         }
       ]
     }

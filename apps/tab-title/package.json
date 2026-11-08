@@ -1,8 +1,0 @@
-{
-  "name": "@herdr-app-config/tab-title",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Herdr tabs named #123 take that issue's or PR's title; unnamed tabs get their agent's",
-  "license": "MIT",
-  "type": "module"
-}

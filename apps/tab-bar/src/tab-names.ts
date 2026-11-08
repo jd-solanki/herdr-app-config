@@ -1,14 +1,20 @@
-import { View, div } from "gpui-kit";
-import { exec, notify, panes, run, setShared, shared, spaces } from "herdr";
+// What a tab is called: an unnamed tab shows its agent's title, and a tab named #123 takes that
+// issue's or pull request's title.
+
+import { type AsyncContext } from "gpui-kit";
+import { exec, notify, panes, run, spaces, type SpaceInfo, type TabInfo } from "herdr";
 
 const ISSUE_NAME = /^#(\d+)$/;
 
 // Only a name that is exactly #<number>, so the mod's own rename never matches again.
-export const issueNumber = (tabName) => tabName.match(ISSUE_NAME)?.[1];
+export const issueNumber = (tabName: string) => tabName.match(ISSUE_NAME)?.[1];
 
 const MAX_TITLE_LENGTH = 40;
 
-export function tabLabel(issueNumber, { title, isPullRequest }) {
+export function tabLabel(
+  issueNumber: string,
+  { title, isPullRequest }: { title: string; isPullRequest: boolean },
+) {
   // Code points, so an emoji is never cut in half.
   const characters = Array.from(title);
   const clamped =
@@ -18,16 +24,16 @@ export function tabLabel(issueNumber, { title, isPullRequest }) {
   return `${isPullRequest ? "🔀" : "🛠️"} #${issueNumber} ${clamped}`;
 }
 
-const nameOf = (tabId) =>
+const nameOf = (tabId: string) =>
   spaces()
     .flatMap((space) => space.tabs)
     .find((tab) => tab.id === tabId)?.name;
 
 // An unnamed tab's agent title (Claude Code sets one per session), unless it's a path,
-// user@host or the program name. Published, never renamed in: a rename marks the tab named
-// and outlives the agent.
-function agentTitles() {
-  const titles = {};
+// user@host or the program name. Shown, never renamed in: a rename marks the tab named and
+// outlives the agent.
+export function agentTitles() {
+  const titles: Record<string, string> = {};
   for (const tab of spaces().flatMap((space) => space.tabs)) {
     const pane =
       panes().find((p) => p.tab === tab.id && p.program?.agent) ??
@@ -46,18 +52,13 @@ function agentTitles() {
   return titles;
 }
 
-// The app has no tab events: render runs whenever spaces change, so it looks for tabs named #<number>.
-export default class TabTitle extends View {
-  init() {
-    // `<tab id> <name>` already looked up, so a failed lookup isn't retried on every change.
-    this.tried = new Set();
-  }
+// The app has no tab events: the bar's render runs whenever spaces change, so it calls
+// renameIssueTabs there to find tabs named #<number>.
+export class IssueTabs {
+  // `<tab id> <name>` already looked up, so a failed lookup isn't retried on every change.
+  private tried = new Set<string>();
 
-  render(cx) {
-    const titles = agentTitles();
-    // tab-bar's label slot: a tab bar that reads it shows these for unnamed tabs.
-    if (JSON.stringify(titles) !== JSON.stringify(shared("tab-bar.labels") ?? {}))
-      setShared("tab-bar.labels", titles);
+  renameIssueTabs(cx: AsyncContext) {
     const now = spaces().flatMap((space) => space.tabs.map((tab) => ({ space, tab })));
     // Forget names a tab no longer has, so naming it #123 again retries.
     this.tried = new Set(
@@ -79,16 +80,15 @@ export default class TabTitle extends View {
         } catch (error) {
           notify({
             title: `Tab ${tab.name}: no title`,
-            body: error.message,
+            body: (error as Error).message,
             level: "error",
           });
         }
       });
     }
-    return div();
   }
 
-  async title(space, tab, number, cwd) {
+  async title(space: SpaceInfo, tab: TabInfo, number: string, cwd: string) {
     // The issues endpoint answers for pull requests too, and gives only a pull request the pull_request key.
     const gh = await exec(
       "gh",

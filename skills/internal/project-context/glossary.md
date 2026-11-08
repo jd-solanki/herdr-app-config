@@ -37,10 +37,6 @@ _Avoid_: global, store
 The folder Herdr loads mods and layouts from, `$HERDR_APP_HOME` or `~/.config/herdr-app`.
 _Avoid_: config dir
 
-**Label slot**:
-The `tab-bar.labels` shared key: tab id to the label an unnamed tab shows, filled by any mod.
-_Avoid_: tab titles, title override
-
 **Package**:
 Code more than one app shares, under `packages/<name>/`; each app's build copies it into its
 mod folder.

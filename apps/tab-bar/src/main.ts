@@ -18,6 +18,7 @@ import {
   type SpaceInfo,
   type TabInfo,
 } from "herdr";
+import { IssueTabs, agentTitles } from "./tab-names.ts";
 
 type LayoutNode = {
   id?: string;
@@ -63,6 +64,7 @@ export default class Tabs extends View {
   // Space id to the panel it had open.
   declare panels: Record<string, string | null>;
   declare declared: Button[];
+  declare issueTabs: IssueTabs;
 
   init(_props: unknown, cx: AsyncContext) {
     this.pressed = null;
@@ -70,6 +72,7 @@ export default class Tabs extends View {
     this.pending = null;
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
     this.declared = [];
+    this.issueTabs = new IssueTabs();
     cx.spawn(async (cx) => {
       const mods = `${appHome()}/mods`;
       for (;;) {
@@ -167,13 +170,13 @@ export default class Tabs extends View {
     localStorage.setItem("panels", JSON.stringify(this.panels));
   }
 
-  render() {
+  render(cx: AsyncContext) {
+    this.issueTabs.renameIssueTabs(cx);
     // herdr.d.ts types the theme as plain strings; its values are #rrggbb colors.
     const t = theme() as Record<string, Color>;
     const space = spaces().find((p) => p.active);
     const shown = space?.tabs ?? [];
-    // Any mod may fill this slot: tab id to the label an unnamed tab shows.
-    const labels = (shared("tab-bar.labels") ?? {}) as Record<string, string>;
+    const titles = agentTitles();
     const stop = (_e: unknown, cx: { stop_propagation(): void }) => cx.stop_propagation();
     const button = (id: string, label: any, action: () => void) =>
       div()
@@ -195,7 +198,7 @@ export default class Tabs extends View {
         panes().find((p) => p.tab === c.id)
       )?.program;
       const auto = !c.named || c.name === program?.name;
-      const name = !auto ? c.name : (labels[c.id] ?? program?.name ?? "Terminal");
+      const name = !auto ? c.name : (titles[c.id] ?? program?.name ?? "Terminal");
       return h_flex()
         .id(`tab-${c.id}`)
         .h(29)

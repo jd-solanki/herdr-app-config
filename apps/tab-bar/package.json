@@ -2,7 +2,7 @@
   "name": "@herdr-app-config/tab-bar",
   "version": "0.0.0",
   "private": true,
-  "description": "Herdr tab bar that other mods add buttons and tab labels to",
+  "description": "Herdr tab bar with agent titles, #123 issue titles and buttons other mods declare",
   "license": "Apache-2.0",
   "type": "module"
 }

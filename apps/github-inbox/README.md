@@ -23,6 +23,10 @@ Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki
 `ctrl-shift-i` opens it as a tab. With [tab-bar](../tab-bar/) it also gets an **Inbox** button
 in the tab bar, and your agent offers to add tab-bar.
 
+This repo's [`workspace` layout](../../src/layouts/) puts it in the right side panel instead of
+a tab. **Inbox** switches the panel to it, like Files and Changes, and the panel stays as you
+left it when you switch spaces.
+
 ## Use
 
 It needs `gh`, logged in.
@@ -32,16 +36,7 @@ It needs `gh`, logged in.
 - Typing a word with a `:` (`is:`, `review:`) suggests its values, and label names after
   `label:`. Enter or Tab takes the highlighted one.
 - Click a row to open it in the browser.
-- It refreshes every minute while it's on screen.
-
-## Keep it open in every space
-
-A tab lives in one space. To keep the inbox on screen everywhere, like the Spaces list, give
-your layout a block with the id `github-inbox` showing this mod. This repo's
-[`workspace` layout](../../src/layouts/) puts it in a 380px column right of the tabs.
-
-With tab-bar, the **Inbox** button and `ctrl-shift-i` then show and hide that column in every
-space at once.
+- It refreshes every minute.
 
 [RECIPE.md](RECIPE.md) describes it exactly, enough for an agent to build it again.
 

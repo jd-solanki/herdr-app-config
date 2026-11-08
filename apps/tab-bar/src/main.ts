@@ -59,18 +59,11 @@ function find(node: LayoutNode | null | undefined, id: string): LayoutNode | nul
 
 export default class Tabs extends View {
   declare pressed: number | null;
-  declare space: string | undefined;
-  declare pending: { want: string | null; until: number } | null;
-  // Space id to the panel it had open.
-  declare panels: Record<string, string | null>;
   declare declared: Button[];
   declare issueTabs: IssueTabs;
 
   init(_props: unknown, cx: AsyncContext) {
     this.pressed = null;
-    this.space = undefined;
-    this.pending = null;
-    this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
     this.declared = [];
     this.issueTabs = new IssueTabs();
     cx.spawn(async (cx) => {
@@ -103,9 +96,8 @@ export default class Tabs extends View {
       .filter((b) => b !== undefined);
   }
 
-  // A button whose mod has a block in the panel stack toggles the panel; one whose mod has
-  // its own layout node toggles that node in every space; any other goes to the space's tab
-  // showing that mod, or opens one.
+  // A button whose mod has a block in the panel stack toggles the panel; any other goes to
+  // the space's tab showing that mod, or opens one.
   press(button: Button) {
     const root = layout() as LayoutNode,
       panel = find(root, "panel"),
@@ -116,10 +108,6 @@ export default class Tabs extends View {
         run("layout.select", { stack: "panel-body", child: button.mod });
         run("layout.show", { id: "panel" });
       }
-      return;
-    }
-    if (find(root, button.mod)) {
-      run("layout.toggle", { id: button.mod });
       return;
     }
     const space = spaces().find((p) => p.active);
@@ -136,43 +124,6 @@ export default class Tabs extends View {
 
   modTab(space: SpaceInfo | undefined, mod: string) {
     return panes().find((p) => p.mod === mod && space?.tabs.some((c) => c.id === p.tab))?.tab;
-  }
-
-  // The side panel is remembered per space: switching shows that space's choice
-  // (closed if it never had one), and opening or closing it records it.
-  syncPanel(
-    space: SpaceInfo | undefined,
-    panel: LayoutNode | null,
-    body: LayoutNode | null,
-    enabled: string[],
-  ) {
-    if (!space || !panel) return;
-    const now = panel.hidden ? null : (body?.active ?? null);
-    if (space.id !== this.space) {
-      const first = this.space === undefined;
-      this.space = space.id;
-      this.pending = null;
-      if (!(first && !(space.id in this.panels))) {
-        const stored = this.panels[space.id] ?? null,
-          want = enabled.includes(stored) ? stored : null;
-        if (want !== now) {
-          this.pending = { want, until: Date.now() + 1000 };
-          if (want) {
-            run("layout.select", { stack: "panel-body", child: want });
-            run("layout.show", { id: "panel" });
-          } else run("layout.hide", { id: "panel" });
-          return;
-        }
-      }
-    }
-    // Until the restore lands (or something else won), the old state isn't a choice.
-    if (this.pending) {
-      if (this.pending.want !== now && Date.now() < this.pending.until) return;
-      this.pending = null;
-    }
-    if (this.panels[space.id] === now) return;
-    this.panels[space.id] = now;
-    localStorage.setItem("panels", JSON.stringify(this.panels));
   }
 
   render(cx: AsyncContext) {
@@ -296,11 +247,8 @@ export default class Tabs extends View {
     const panel = find(root, "panel"),
       body = find(root, "panel-body");
     const buttons = this.buttons();
-    const enabled = [
-      ...((shared("workspace.panels") ?? ["files", "changes"]) as string[]),
-      ...buttons.filter((b) => body?.children?.some((c) => c.id === b.mod)).map((b) => b.mod),
-    ];
-    this.syncPanel(space, panel, body, enabled);
+    // One side panel for every space: Herdr keeps whether it's open, and on which block.
+    const enabled = (shared("workspace.panels") ?? ["files", "changes"]) as string[];
     const barButton = (
       id: string,
       label: string,
@@ -380,9 +328,7 @@ export default class Tabs extends View {
             b.icon ?? null,
             body?.children?.some((c) => c.id === b.mod)
               ? panel && !panel.hidden && body.active === b.mod
-              : find(root, b.mod)
-                ? !find(root, b.mod)!.hidden
-                : Boolean(this.modTab(space, b.mod)) &&
+              : Boolean(this.modTab(space, b.mod)) &&
                   shown.find((c) => c.active)?.id === this.modTab(space, b.mod),
             () => this.press(b),
           ),

@@ -52,8 +52,7 @@ Put a `button` field in your mod's `mod.json`. Herdr ignores it; the tab bar rea
 - `icon` is a path under `~/.config/herdr-app`. `per_space: true` passes the space as
   `props.space` when it opens your mod.
 - The button toggles your mod's side panel when the layout's `panel-body` stack has a block
-  with your mod's name as its id. When another layout node has that id, it shows and hides that
-  node in every space. Otherwise it goes to your mod's tab in the space, or opens one.
+  with your mod's name as its id; otherwise it goes to your mod's tab in the space, or opens one.
 - Bind a key to it with `"tab-bar.<your mod>"` in `keys.json`.
 
 Set `"props": { "buttons": ["my-mod", "other-mod"] }` on the tab bar's layout block to pick and

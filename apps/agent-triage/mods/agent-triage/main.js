@@ -1,5 +1,5 @@
-// Agents in grouped or priority views; parents take their most urgent sub-agent's place.
-// A viewed done agent stays in Done until left.
+// Agents in priority sections that fold: Needs you, Done, Working, Idle, under any pinned.
+// Parents take their most urgent sub-agent's place. A viewed done agent stays in Done until left.
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
@@ -14,13 +14,23 @@ import {
   shared,
   setShared,
   setAgentOrder,
-  openOverlay,
-  closeOverlay,
-  props,
   window,
   layout,
 } from "herdr";
 
+/** @import { AsyncContext, Color } from "gpui-kit" */
+/** @import { AgentInfo, PaneInfo, Program, Status, TabInfo } from "herdr" */
+/** @typedef {{ id?: string, size?: { px?: number }, children?: LayoutNode[] }} LayoutNode */
+/** A live sub-agent (a terminals() entry) with the tree lines in front of it.
+ *  @typedef {{ t: any, lines: string[] }} Sub */
+/** @typedef {{ id: string, label: string, status: Status | null, members: AgentInfo[] }} Group */
+
+// herdr.d.ts types the theme as plain strings; its values are #rrggbb colors.
+const colors = () => /** @type {Record<string, Color>} */ (theme());
+/** @param {Color} color @param {string} alpha two hex digits @returns {Color} */
+const fade = (color, alpha) => `${color}${alpha}`;
+
+/** @param {LayoutNode} node @param {string} id @returns {LayoutNode | null} */
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
@@ -31,11 +41,13 @@ function find(node, id) {
 }
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
-const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
+// herdr.d.ts leaves layout() unknown.
+const sidebar = () => find(/** @type {LayoutNode} */ (layout()), "sidebar");
+const narrow = () => (sidebar()?.size?.px ?? Infinity) < 160;
 
 // To the rail (on macOS wide enough for the traffic lights), or back to the width it had.
 function toggleSidebar() {
-  const width = find(layout(), "sidebar")?.size?.px;
+  const width = sidebar()?.size?.px;
   if (!narrow()) setShared("sidebar.width", width);
   // Mods edited before the rail went by width still read the flag.
   setShared("sidebar.collapsed", !narrow());
@@ -45,9 +57,12 @@ function toggleSidebar() {
   });
 }
 
+/** @param {string | null | undefined} s */
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 
+/** @param {PaneInfo[]} all */
 function leadPanes(all) {
+  /** @type {Map<string, PaneInfo>} */
   const leads = new Map();
   for (const p of all) {
     if (!p.terminal) continue;
@@ -62,6 +77,7 @@ function leadPanes(all) {
   return leads;
 }
 
+/** @param {TabInfo} tab @param {PaneInfo | undefined} l */
 function title(tab, l) {
   const prog = l?.program?.name;
   const live = clean(l?.title);
@@ -73,21 +89,21 @@ function title(tab, l) {
     live.toLowerCase() !== l?.program?.key;
   return (tab.name === prog || !tab.named) && telling ? live : tab.name;
 }
+/** @type {Record<string, number>} */
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 // A sub-agent without a pane isn't in agents(): its raw word, error counting as
 // blocked. It's never done: it reports to its parent, and the parent's done is the news.
+/** @param {any} k a terminals() entry @param {Map<string, Status>} listed @returns {string} */
 const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status;
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
-const SORTS = [
-  { id: "priority", label: "Priority", icon: "clock" },
-  { id: "grouped", label: "Grouped by space", icon: "layers" },
-];
-const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
+/** @type {Record<number, string>} */
 const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1: "Idle" };
+/** @type {Record<number, Status>} */
 const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };
 
+/** @param {number} ms */
 function duration(ms) {
   const m = Math.floor(ms / 60000);
   if (m < 1) return "<1m";
@@ -97,6 +113,7 @@ function duration(ms) {
 }
 
 // The agent's icon from the app's program table: a one-color glyph or a picture.
+/** @param {Program | undefined} p @param {number} size @param {Color} color */
 function icon(p, size, color) {
   if (!p?.icon) return null;
   return p.tint
@@ -105,19 +122,31 @@ function icon(p, size, color) {
 }
 
 export default class Agents extends View {
+  /** @param {Record<string, any> | undefined} _props @param {AsyncContext} cx */
   init(_props, cx) {
-    if (props()?.sortMenu) return;
+    /** Agents and sections folded by hand. @type {Set<string>} */
     this.folded = new Set();
-    // Each agent's last state and when it changed (ms), kept across restarts.
+    /** Each agent's last state and when it changed (ms), kept across restarts.
+     *  @type {Record<string, { s: string, at: number }>} */
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
+    /** @type {string[]} */
     this.pendingPins = JSON.parse(localStorage.getItem("pins") ?? "[]");
     if (!this.pendingPins.length) localStorage.removeItem("pins");
+    /** @type {Set<string>} */
     this.migratingPins = new Set();
+    /** @type {{ address: string, rank: number } | null} */
+    this.held = null;
+    /** @type {Map<string, Status>} */
+    this.listed = new Map();
+    /** @type {string | null} */
+    this.hovered = null;
+    this.seeded = false;
     cx.timer.every(30000, (cx) => cx.notify());
   }
 
   // Stamps agents whose state changed. Done and idle count as one: looking at a
   // finished agent turns done into idle, and looking isn't the agent doing anything.
+  /** @param {AgentInfo[]} list @param {number} now */
   track(list, now) {
     let dirty = false;
     for (const a of list) {
@@ -136,7 +165,9 @@ export default class Agents extends View {
 
   // Keep offline pins until their terminal returns, and keep each pending until
   // core echoes the label so a failed write doesn't erase the old pin.
+  /** @param {any[]} all terminals() */
   migratePins(all) {
+    /** @type {Map<string, any>} */
     const listed = new Map(all.filter((t) => t.state === "live").map((t) => [t.address, t]));
     const pending = this.pendingPins.filter((address) => {
       const terminal = listed.get(address);
@@ -154,12 +185,14 @@ export default class Agents extends View {
     else localStorage.removeItem("pins");
   }
 
+  /** @param {AgentInfo} a */
   since(a) {
     return this.changed[a.address]?.at ?? 0;
   }
 
   // Looking at a done agent makes it idle; it stays with Done until you leave
   // it rather than drop away under you. Any other change moves it at once.
+  /** @param {AgentInfo[]} list */
   hold(list) {
     const cur = list.find((a) => a.focused);
     const same = cur && cur.address === this.held?.address;
@@ -168,56 +201,25 @@ export default class Agents extends View {
       this.held = cur ? { address: cur.address, rank: RANK[cur.status] ?? 0 } : null;
   }
 
+  /** @param {AgentInfo} a */
   rank(a) {
     const sawDone =
       a.address === this.held?.address && this.held.rank === RANK.done && a.status === "idle";
     return sawDone ? RANK.done : (RANK[a.status] ?? 0);
   }
 
-  sortMenu(t) {
-    const on = sortOf().id;
-    return v_flex()
-      .w_full()
-      .p(5)
-      .bg(t.popover)
-      .text_size(12.8)
-      .child(div().px(8).pt(4).pb(6).text_size(11).text_color(t.dim).child("Sort agents"))
-      .children(
-        SORTS.map((s) =>
-          h_flex()
-            .id(`sort-${s.id}`)
-            .h(31)
-            .px(8)
-            .gap(9)
-            .rounded(7)
-            .items_center()
-            .text_color(t.foreground)
-            .hover((el) => el.bg(t.hover))
-            .on_click(() => {
-              setShared("agents.sort", s.id);
-              closeOverlay(props().overlay);
-            })
-            .child(
-              svg(`mods/workspace-chrome/${s.icon}.svg`).size(14).flex_none().text_color(t.muted),
-            )
-            .child(div().flex_1().child(s.label))
-            .when(s.id === on, (el) =>
-              el.child(
-                svg("mods/workspace-chrome/check.svg")
-                  .size(14)
-                  .flex_none()
-                  .text_color(t.foreground),
-              ),
-            ),
-        ),
-      );
+  /** @param {string} id an agent's address or a section's id */
+  toggleFold(id) {
+    if (!this.folded.delete(id)) this.folded.add(id);
   }
 
+  /** @param {string} addr */
   peek(addr) {
     run("terminal.peek", { terminal: addr });
   }
 
   // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
+  /** @param {any[]} all terminals() @param {string} addr @param {string[]} lead @returns {Sub[]} */
   tree(all, addr, lead = []) {
     const kids = all.filter((k) => k.parent === addr && k.state === "live");
     return kids.flatMap((k, i) => {
@@ -229,6 +231,7 @@ export default class Agents extends View {
     });
   }
 
+  /** @param {Record<string, Color>} t @param {Sub} s @param {string | null | undefined} shown @param {boolean} compact */
   subRow(t, s, shown, compact) {
     const k = s.t;
     const st = kidStatus(k, this.listed);
@@ -272,6 +275,7 @@ export default class Agents extends View {
   }
 
   // compact: a ! for blocked where a header already says "Needs you".
+  /** @param {Record<string, Color>} t @param {{ status: string }} a */
   status(t, a, compact = false) {
     const color = t[a.status] ?? t.dim;
     if (a.status === "working")
@@ -286,7 +290,7 @@ export default class Agents extends View {
         .size(14)
         .flex_none()
         .rounded(4)
-        .bg(t.blocked + "26")
+        .bg(fade(t.blocked, "26"))
         .text_size(10.5)
         .font_bold()
         .text_color(t.blocked)
@@ -300,7 +304,7 @@ export default class Agents extends View {
         .px(6)
         .h(18)
         .rounded(5)
-        .bg(t.blocked + "26")
+        .bg(fade(t.blocked, "26"))
         .text_size(10.5)
         .font_semibold()
         .text_color(t.blocked)
@@ -321,14 +325,12 @@ export default class Agents extends View {
       .mx(3)
       .flex_none()
       .rounded(4)
-      .bg(a.status === "done" ? color : t.dim + "00");
+      .bg(a.status === "done" ? color : fade(t.dim, "00"));
   }
 
-  render(cx) {
-    const t = theme();
-    if (props()?.sortMenu) return this.sortMenu(t);
+  render() {
+    const t = colors();
     const collapsed = narrow();
-    const sort = sortOf();
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
@@ -337,7 +339,6 @@ export default class Agents extends View {
     const now = Date.now();
     this.track(list, now);
     this.hold(list);
-    const byPriority = sort.id === "priority";
     const urgency = new Map(
       list.map((a) => [
         a.address,
@@ -347,27 +348,32 @@ export default class Agents extends View {
         ),
       ]),
     );
+    /** @param {AgentInfo} a */
     const rankOf = (a) => urgency.get(a.address);
-    if (byPriority)
-      list = [...list].sort(
-        (x, y) => rankOf(y) - rankOf(x) || this.since(y) - this.since(x) || y.seq - x.seq,
-      );
+    list = [...list].sort(
+      (x, y) => rankOf(y) - rankOf(x) || this.since(y) - this.since(x) || y.seq - x.seq,
+    );
     const pinned = list.filter((a) => a.pinned);
     const rest = list.filter((a) => !a.pinned);
     list = [...pinned, ...rest];
     setAgentOrder(list.map((a) => a.address));
 
+    /** @param {AgentInfo} a @param {number} i */
     const withKids = (a, i) => {
       const subs = collapsed ? [] : this.tree(all, a.address);
       const r = row(a, i, subs);
       if (this.folded.has(a.address)) return [r];
-      return [r, ...subs.map((s) => this.subRow(t, s, shown, byPriority))];
+      return [r, ...subs.map((s) => this.subRow(t, s, shown, true))];
     };
 
     // The fold chevron; folded, the count too, colored by the most urgent one.
+    /** @param {AgentInfo} a @param {Sub[]} subs */
     const fold = (a, subs) => {
       const sts = subs.map((s) => kidStatus(s.t, this.listed));
-      const top = sts.reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
+      const top = sts.reduce(
+        (m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m),
+        /** @type {string | null} */ (null),
+      );
       const open = !this.folded.has(a.address);
       return div()
         .id(`fold-${a.address}`)
@@ -383,7 +389,7 @@ export default class Agents extends View {
         .hover((s) => s.bg(t.hover).text_color(t.foreground))
         .on_click((_e, cx) => {
           cx.stop_propagation();
-          open ? this.folded.add(a.address) : this.folded.delete(a.address);
+          this.toggleFold(a.address);
           cx.notify();
         })
         .child(
@@ -407,11 +413,14 @@ export default class Agents extends View {
     const labels = new Map(
       list.map((a) => [a.address, tabLabels.get(a.tab) ?? (a.title || a.program?.name || "")]),
     );
+    /** @param {AgentInfo} a */
     const label = (a) => labels.get(a.address);
     const detail = new Map(list.map((a) => [a.address, /^\d+$/.test(label(a)) ? null : label(a)]));
     // The space's repo (from spaces-avatars), else its folder: a worktree's folder name means nothing.
-    const repos = shared("space.repos") ?? {};
+    const repos = /** @type {Record<string, string>} */ (shared("space.repos") ?? {});
+    /** @param {AgentInfo} a */
     const spaceName = (a) => repos[a.space] || a.space_name;
+    /** @type {Record<string, number>} */
     const seen = {};
     for (const a of list) {
       const k = `${spaceName(a)}\u0000${detail.get(a.address) ?? ""}`;
@@ -422,7 +431,9 @@ export default class Agents extends View {
         detail.set(a.address, label(a));
     }
 
-    const avatars = shared("space.avatars") ?? {};
+    // Space id to an avatar image path, from spaces-avatars.
+    const avatars = /** @type {Record<string, string>} */ (shared("space.avatars") ?? {});
+    /** @param {AgentInfo} a @param {number} i @param {Sub[]} subs */
     const row = (a, i, subs = []) => {
       // The space's avatar, from the spaces list; else the program's icon.
       const pic = avatars[a.space]
@@ -479,12 +490,8 @@ export default class Agents extends View {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/${isPinned ? "pin-off" : "pin"}.svg`).size(13));
-      // Under a space header the space goes without saying; an automatic tab number says nothing.
-      // Without a space header above (priority, pinned) the row names its space.
-      const full = byPriority || isPinned;
-      const name = full
-        ? spaceName(a) || label(a)
-        : (more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a)));
+      // No space header above a row, so it names its space; the detail follows.
+      const name = spaceName(a) || label(a);
       return h_flex()
         .id(`ag-${a.address}`)
         .px(8)
@@ -509,9 +516,7 @@ export default class Agents extends View {
               .when(subs.length > 0, (el) =>
                 el.on_click((_e, cx) => {
                   cx.stop_propagation();
-                  this.folded.has(a.address)
-                    ? this.folded.delete(a.address)
-                    : this.folded.add(a.address);
+                  this.toggleFold(a.address);
                   cx.notify();
                 }),
               )
@@ -527,12 +532,12 @@ export default class Agents extends View {
             .child(
               div()
                 .min_w(0)
-                .max_w(full && more ? 120 : 200)
+                .max_w(more ? 120 : 200)
                 .truncate()
                 .text_color(idle ? t.muted : t.foreground)
                 .child(name),
             )
-            .when(full && Boolean(more), (el) =>
+            .when(Boolean(more), (el) =>
               el.child(
                 div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`),
               ),
@@ -552,53 +557,36 @@ export default class Agents extends View {
               .child(duration(now - when)),
           ),
         )
-        .child(this.status(t, a, byPriority && !isPinned));
+        .child(this.status(t, a, !isPinned));
     };
 
-    // Groups in list order: spaces (grouped) or priority sections. Agents of a
-    // space are next to each other in agents(), so neighbours make a group.
+    // Pinned, then every section, even empty, so the list doesn't jump.
+    /** @type {Group[]} */
     const groups = pinned.length
       ? [{ id: "pinned", label: "Pinned", status: null, members: pinned }]
       : [];
-    // Priority: every section always shows, even empty, so the list doesn't jump.
-    if (byPriority)
-      groups.push(
-        ...[4, 3, 2, 1].map((r) => ({
-          id: `sec-${r}`,
-          label: SECTION[r],
-          status: SECTION_STATUS[r],
-          members: rest.filter((a) => (rankOf(a) || RANK.idle) === r),
-        })),
-      );
-    else
-      for (const a of rest) {
-        const r = rankOf(a) || RANK.idle;
-        const id = byPriority ? `sec-${r}` : `sp-${a.space}`;
-        if (groups.at(-1)?.id === id) groups.at(-1).members.push(a);
-        else
-          groups.push({
-            id,
-            label: byPriority ? SECTION[r] : spaceName(a) || "",
-            status: byPriority ? SECTION_STATUS[r] : null,
-            members: [a],
-          });
-      }
+    groups.push(
+      ...[4, 3, 2, 1].map((r) => ({
+        id: `sec-${r}`,
+        label: SECTION[r],
+        status: SECTION_STATUS[r],
+        members: rest.filter((a) => (rankOf(a) || RANK.idle) === r),
+      })),
+    );
 
     // Sections start folded but the most urgent one with agents; after that each folds on its own.
-    if (byPriority && !this.seeded && rest.length) {
+    if (!this.seeded && rest.length) {
       this.seeded = true;
       const first = groups.find((g) => g.id.startsWith("sec-") && g.members.length);
       for (const g of groups) if (g.id.startsWith("sec-") && g !== first) this.folded.add(g.id);
     }
+    /** @param {Group} g */
     const isFolded = (g) => this.folded.has(g.id);
 
-    // A group's header; it folds the group. Folded, it says how many and the most urgent state.
+    // A group's header, with how many it holds; it folds the group.
+    /** @param {Group} g */
     const header = (g) => {
       const open = !isFolded(g);
-      const top = g.members.reduce(
-        (m, a) => ((RANK[a.status] ?? 0) > (RANK[m] ?? 0) ? a.status : m),
-        null,
-      );
       return h_flex()
         .id(g.id)
         .px(8)
@@ -612,7 +600,7 @@ export default class Agents extends View {
         .cursor_pointer()
         .hover((s) => s.text_color(t.foreground))
         .on_click((_e, cx) => {
-          open ? this.folded.add(g.id) : this.folded.delete(g.id);
+          this.toggleFold(g.id);
           cx.notify();
         })
         .child(
@@ -621,99 +609,78 @@ export default class Agents extends View {
             .text_color(t[g.status] ?? t.dim)
             .child(g.label),
         )
-        .when(byPriority || !open, (el) =>
-          el.child(div().text_color(t.dim).child(String(g.members.length))),
-        )
+        .child(div().text_color(t.dim).child(String(g.members.length)))
         .child(div().flex_1())
         .when(!open, (el) =>
-          el
-            .when(!byPriority && top && top !== "idle", (el) =>
-              el.child(this.status(t, { status: top }, true)),
-            )
-            .child(
-              svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color(t.dim),
-            ),
+          el.child(
+            svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color(t.dim),
+          ),
         );
     };
     const rows = collapsed
       ? list.flatMap(withKids)
       : groups.flatMap((g) => [header(g), ...(isFolded(g) ? [] : g.members.flatMap(withKids))]);
 
-    return v_flex()
-      .size_full()
-      .min_h(0)
-      .bg(t.chrome)
-      .border_t(1)
-      .border_color(t.border)
-      .text_size(13)
-      .when(!collapsed, (el) =>
-        el.child(
-          h_flex()
-            .px(16)
-            .h(41)
-            .pt(14)
-            .pb(5)
-            .flex_none()
-            .items_center()
-            .justify_between()
-            .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
-            .child(
-              div()
-                .id("ag-sort")
-                .text_size(11)
-                .text_color(t.dim)
-                .hover((s) => s.text_color(t.foreground))
-                .on_click(() =>
-                  openOverlay({
-                    mod: "agents-accordion",
-                    kind: "popup",
-                    width: 200,
-                    height: 140,
-                    props: { sortMenu: true },
-                  }),
-                )
-                .tooltip(`Sort agents: ${sort.label}`)
-                .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
-            ),
-        ),
-      )
-      .when(list.length === 0 && !collapsed, (el) =>
-        el.child(
-          div()
-            .px(12)
-            .text_size(12)
-            .text_color(t.dim)
-            .child(
-              "No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.",
-            ),
-        ),
-      )
-      .child(
-        v_flex()
-          .id("ag-list")
-          .flex_1()
-          .min_h(0)
-          .px(collapsed ? 0 : 8)
-          .overflow_y_scrollbar()
-          .mode("always")
-          .children(rows),
-      )
-      .when(collapsed, (el) =>
-        el.child(
-          h_flex()
-            .h(28)
-            .items_center()
-            .justify_center()
-            .child(
-              div()
-                .id("collapse")
-                .text_size(13)
-                .text_color(t.dim)
-                .hover((s) => s.text_color(t.foreground))
-                .on_click(toggleSidebar)
-                .child("»"),
-            ),
-        ),
-      );
+    return (
+      v_flex()
+        .size_full()
+        .min_h(0)
+        .bg(t.chrome)
+        .border_t(1)
+        .border_color(t.border)
+        .text_size(13)
+        .when(!collapsed, (el) =>
+          el.child(
+            h_flex()
+              .px(16)
+              .h(41)
+              .pt(14)
+              .pb(5)
+              .flex_none()
+              .items_center()
+              .justify_between()
+              .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents")),
+          ),
+        )
+        .when(list.length === 0 && !collapsed, (el) =>
+          el.child(
+            div()
+              .px(12)
+              .text_size(12)
+              .text_color(t.dim)
+              .child(
+                "No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.",
+              ),
+          ),
+        )
+        .child(
+          v_flex()
+            .id("ag-list")
+            .flex_1()
+            .min_h(0)
+            .px(collapsed ? 0 : 8)
+            .overflow_y_scrollbar()
+            .mode("always")
+            .children(rows),
+        )
+        // Only a narrow `sidebar` node collapses the list, so the toggle needs one to resize.
+        .when(collapsed, (el) =>
+          el.child(
+            h_flex()
+              .h(28)
+              .items_center()
+              .justify_center()
+              .child(
+                div()
+                  .id("collapse")
+                  .text_size(13)
+                  .text_color(t.dim)
+                  .hover((s) => s.text_color(t.foreground))
+                  .on_click(toggleSidebar)
+                  .child("»"),
+              ),
+          ),
+        )
+    );
   }
 }

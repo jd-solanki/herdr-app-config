@@ -1,0 +1,17 @@
+Spaces with avatars (spaces-avatars)
+Copyright jd-solanki
+
+This mod is derived from the `spaces` mod, version 0.1.11, shipped with the Herdr app
+(https://github.com/herdrdev/herdr-app), Copyright the Herdr authors, licensed under the
+Apache License, Version 2.0.
+
+Modified by jd-solanki. Changes from the original:
+
+- A space whose repo has a github.com `origin` shows the owner's GitHub avatar, fetched with
+  `curl` and cached in the mod's `.avatars/` folder, in place of the colored letter tile.
+- After the branch and ahead/behind counts, each space shows its working tree's untracked,
+  modified, deleted and unmerged file counts, read from `git status --porcelain=v2`.
+- A space nobody named shows its repo's name instead of Herdr's name for it.
+- It shares each space's avatar (`space.avatars`) and shown name (`space.repos`) for an
+  agents list to reuse.
+- JSDoc types for checking against Herdr's type files.

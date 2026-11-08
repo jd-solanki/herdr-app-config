@@ -44,7 +44,7 @@
               },
               "min": 90,
               "content": {
-                "mod": "agents-accordion"
+                "mod": "agent-triage"
               }
             },
             {

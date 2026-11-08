@@ -1,0 +1,8 @@
+{
+  "name": "@herdr-app-config/spaces-avatars",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Herdr Spaces sidebar with GitHub owner avatars and git counts",
+  "license": "Apache-2.0",
+  "type": "module"
+}

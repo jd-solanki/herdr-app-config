@@ -7,3 +7,7 @@ dist
 .env
 .env.*
 !.env.example
+
+# Written into a mod folder by `herdr-app check` and the editor; never part of a published mod.
+apps/*/mods/*/jsconfig.json
+apps/*/mods/*/*.d.ts

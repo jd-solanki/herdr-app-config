@@ -1,14 +1,18 @@
 #!/bin/sh
-# Copies the built mods, the layouts and mermaid-svg into place, and binds the GitHub key.
+# Copies the mods (apps/ as they are in git, src/ as built), the layouts and mermaid-svg into
+# place, and binds the GitHub key.
 # `pnpm run setup` runs it after a build; `pnpm dev` after every rebuild, so Herdr reloads.
 set -eu
 cd "$(dirname "$0")/.."
 app="${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
 
 # rm first: cp writes through a symlink, and an old stow link points back into a repo.
+# File by file, so what a mod keeps in its installed folder (spaces-avatars' .avatars/) stays.
 place() { mkdir -p "$2"; rm -f "$2/$(basename "$1")"; cp "$1" "$2/"; }
 
-for file in dist/mods/*/*; do place "$file" "$app/mods/$(basename "$(dirname "$file")")"; done
+for file in apps/*/mods/*/* dist/mods/*/*; do
+  [ -f "$file" ] && place "$file" "$app/mods/$(basename "$(dirname "$file")")"
+done
 for file in src/layouts/*.json; do place "$file" "$app/layouts"; done
 place bin/mermaid-svg "$HOME/.local/bin"
 

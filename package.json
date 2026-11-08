@@ -1,7 +1,7 @@
 {
   "name": "herdr-app-config",
   "version": "0.0.0",
-  "private": "true",
+  "private": true,
   "description": "Herdr app customizations: mods, layouts and their install",
   "homepage": "https://github.com/jd-solanki/herdr-app-config#readme",
   "license": "MIT",
@@ -13,7 +13,7 @@
   "type": "module",
   "scripts": {
     "build": "vp pack",
-    "dev": "vp pack --watch --on-success 'sh scripts/install.sh'",
+    "dev": "node --watch-path=apps --watch-preserve-output scripts/install-on-save.mjs & vp pack --watch --on-success 'sh scripts/install.sh'; wait",
     "test": "vp test",
     "check": "vp check",
     "prepare": "vp config",

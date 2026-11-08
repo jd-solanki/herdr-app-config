@@ -22,6 +22,24 @@ import {
   layout,
 } from "herdr";
 
+/** @import { PaneInfo, SpaceInfo, Status } from "herdr" */
+/** @import { Color, Context } from "gpui-kit" */
+// theme() is typed as plain strings; every value it holds is a hex color.
+/** @typedef {Record<string, Color>} Theme */
+/** @typedef {{ id?: string, size?: { px?: number }, children?: LayoutNode[] }} LayoutNode */
+/** @typedef {{ name: string, state: string, temporary?: boolean }} Machine `hc machine ls --json` */
+/**
+ * @typedef {{ name: string, branch: string | null, ahead: number, behind: number, repo: string,
+ *   linked: boolean, owner: string | null, untracked: number, modified: number, deleted: number,
+ *   unmerged: number }} Git
+ */
+/** @typedef {{ w: SpaceInfo, i: number, g: Git | null, tree: string | null }} Row */
+
+/**
+ * @param {LayoutNode} node
+ * @param {string} id
+ * @returns {LayoutNode | null}
+ */
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
@@ -32,18 +50,34 @@ function find(node, id) {
 }
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
-const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
+// layout() is typed unknown: it's the layout file as written.
+const narrow = () =>
+  (find(/** @type {LayoutNode} */ (layout()), "sidebar")?.size?.px ?? Infinity) < 160;
 
 // Where a space is now: its first terminal's live folder, else where it was made.
 // `ps`: panes(), read once by the caller (each read copies every pane).
+/**
+ * @param {SpaceInfo} s
+ * @param {PaneInfo[]} ps
+ */
 function place(s, ps) {
   const tabs = new Set((s.tabs ?? []).map((c) => c.id));
   return ps.find((p) => tabs.has(p.tab) && p.cwd)?.cwd || s.folder;
 }
+/** @param {{ tree: string | null }} row */
 const rowHeight = ({ tree }) => (tree ? 28 : 30);
+/**
+ * @param {SpaceInfo} s
+ * @param {PaneInfo[]} ps
+ */
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
+/** @param {string} path */
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
 // A name someone gave it, else its repo's: Herdr's own name for a worktree is its folder.
+/**
+ * @param {SpaceInfo} w
+ * @param {Git | null} g
+ */
 const title = (w, g) => (!w.named && g?.name) || w.name;
 // Changes made outside Herdr (an editor's save, a commit in another app): looked
 // for this often, in repos the list shows, while the window is in front.
@@ -51,6 +85,7 @@ const FALLBACK = 60000;
 
 // What a stored color name looks like on an avatar (the same in every mod
 // that draws space avatars): one strong color per hue, light and dark alike.
+/** @type {Record<string, Color>} */
 const MARK = {
   ansi6: "#22a99a",
   ansi3: "#e3814f",
@@ -60,17 +95,22 @@ const MARK = {
   ansi1: "#d9649a",
 };
 
+// Space id -> a MARK name or a hex color; render() keeps it, other mods read it.
+const spaceColors = () => /** @type {Record<string, string>} */ (shared("space.colors") ?? {});
+
 // Hidden: any other file saved in a mod's folder reloads the mod.
 const AVATARS = "mods/spaces-avatars/.avatars";
 // 3x the 18px avatar, sharp on hi-dpi screens.
 const AVATAR_PX = 54;
 // The strict owner charset keeps a remote URL from reaching the avatar's file path.
+/** @param {string} url */
 const githubOwner = (url) =>
   url.match(
     /^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?(?:www\.|ssh\.)?github\.com(?::\d+\/|[:/])([\w-]+)\//i,
   )?.[1] ?? null;
 
-// `git status --porcelain=v2` lines, counted as `git_state` counts them.
+// `git status --porcelain=v2` lines, counted as a shell prompt's git segment counts them.
+/** @param {string} status */
 function treeCounts(status) {
   const counts = { untracked: 0, modified: 0, deleted: 0, unmerged: 0 };
   for (const line of status.split("\n")) {
@@ -83,32 +123,55 @@ function treeCounts(status) {
 }
 
 // A space speaks up only when something in it needs you.
+/** @param {Status | null} status */
 export function glyph(status) {
   return status === "blocked" || status === "done" ? "●" : "·";
 }
 
+/**
+ * @param {Theme} t
+ * @param {Status | null} status
+ */
 export function tone(t, status) {
   return t[status] ?? t.unknown;
 }
 
 export default class Spaces extends View {
+  /**
+   * @param {unknown} _props
+   * @param {Context} cx
+   */
   init(_props, cx) {
-    this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked, owner }, null: not a repo
+    /** @type {Record<string, Git | null>} */
+    this.git = {}; // where() -> its Git, null: not a repo
+    /** @type {Map<string, string | null>} */
     this.avatars = new Map(); // GitHub owner -> its cached image, null: not there yet. A Map: a missing owner is not the owner `null` or `undefined`, and `constructor` is a real owner.
+    /** @type {Record<string, number>} */
     this.checked = {}; // where() -> when it was last looked at
+    /** @type {Set<string>} */
     this.unsure = new Set(); // where()s git couldn't answer for (a machine away)
+    /** @type {Set<string>} */
     this.pending = new Set(); // where()s to look at next
+    /** @type {Record<string, boolean>} */
     this.busy = {}; // pane -> an agent working or a program in front of its shell
+    /** @type {Record<string, boolean>} */
     this.ready = {}; // machine -> its layout was readable at the last look
+    /** @type {Record<string, string>} */
     this.at = {}; // space -> its where() at the last look
+    /** @type {Set<string>} */
     this.watching = new Set(); // local repos' git folders
     // Spaces made while this runs wait (at most a moment) for their git, so a
     // worktree appears under its repo instead of jumping there.
     this.shown = new Set(spaces().map((s) => s.id));
+    /** @type {Record<string, number>} */
     this.born = {};
+    /** @type {number | null} */
     this.pressed = null;
+    /** @type {number | null} */
     this.over = null;
+    /** @type {Machine[]} */
     this.machines = [];
+    /** @type {Set<string | null>} machine names; null is this computer */
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
     this.refreshMachines(cx);
     cx.timer.every(15000, (cx) => this.refreshMachines(cx));
@@ -117,6 +180,7 @@ export default class Spaces extends View {
     cx.timer.every(250, (cx) => this.checkNew(cx));
   }
 
+  /** @param {Context} cx */
   checkNew(cx) {
     const now = Date.now();
     const sp = spaces();
@@ -129,8 +193,14 @@ export default class Spaces extends View {
   // Places whose git could have changed: new ones (a new space, a cd), where a
   // command or an agent's turn just ended (a checkout, a commit, edits), those on
   // a machine that is back, and repos in view whose fallback is due.
+  /**
+   * @param {number} now
+   * @param {SpaceInfo[]} sp
+   * @param {PaneInfo[]} ps
+   */
   due(now, sp, ps) {
     // Moved there: what it knew of that place may be old.
+    /** @type {Record<string, string>} */
     const at = {};
     for (const s of sp) at[s.id] = where(s, ps);
     const keys = new Set(Object.values(at).filter((k) => JSON.parse(k)[1]));
@@ -138,8 +208,10 @@ export default class Spaces extends View {
     for (const [id, k] of Object.entries(at))
       if (this.at[id] && this.at[id] !== k && keys.has(k)) due.add(k);
     this.at = at;
+    /** @type {Record<string, SpaceInfo>} */
     const spaceOf = {};
     for (const s of sp) for (const t of s.tabs ?? []) spaceOf[t.id] = s;
+    /** @type {Record<string, boolean>} */
     const busy = {};
     for (const p of ps) {
       if (!p.terminal || !spaceOf[p.tab]) continue;
@@ -165,23 +237,34 @@ export default class Spaces extends View {
   }
 
   // `key` and the other places in its repo (a commit there moves their ahead/behind).
+  /**
+   * @param {string} key
+   * @param {Set<string>} keys
+   */
   sameRepo(key, keys) {
     const repo = this.git[key]?.repo;
     return [key, ...(repo ? [...keys].filter((k) => this.git[k]?.repo === repo) : [])];
   }
 
+  /** @param {Context} cx */
   refreshMachines(cx) {
     cx.spawn(async (cx) => {
       try {
         const r = await hc(["machine", "ls", "--json"]);
         if (r.code === 0)
-          this.machines = (JSON.parse(r.stdout).machines ?? []).filter((m) => !m.temporary);
+          this.machines = (JSON.parse(r.stdout).machines ?? []).filter(
+            (/** @type {Machine} */ m) => !m.temporary,
+          );
       } catch {}
       cx.notify();
     });
   }
 
   // One look at a time, each place once however often it was asked for meanwhile.
+  /**
+   * @param {Iterable<string>} keys
+   * @param {Context} cx
+   */
   refreshGit(keys, cx) {
     for (const k of keys) this.pending.add(k);
     if (this.refreshing) return;
@@ -206,6 +289,10 @@ export default class Spaces extends View {
   }
 
   // One place's git: branch, ahead/behind, its repo.
+  /**
+   * @param {string} key
+   * @param {Context} cx
+   */
   async check(key, cx) {
     const [on, cwd] = JSON.parse(key);
     this.checked[key] = Date.now();
@@ -244,6 +331,7 @@ export default class Spaces extends View {
         : base(repo).replace(/\.git$/, "");
       const origin = await exec("git", ["remote", "get-url", "origin"], { cwd, on });
       const owner = githubOwner(origin.stdout);
+      /** @type {Git} */
       const info = {
         name,
         branch: null,
@@ -274,11 +362,16 @@ export default class Spaces extends View {
 
   // Shows the cached file at once and refreshes it once a run: a changed avatar
   // appears from the next start. Without any file, the next look tries again.
+  /**
+   * @param {string} owner
+   * @param {Context} cx
+   */
   fetchAvatar(owner, cx) {
     if (this.avatars.has(owner)) return;
     this.avatars.set(owner, null);
     const file = `${AVATARS}/${owner}.png`;
     const path = `${appHome()}/${file}`;
+    /** @param {Context} cx */
     const show = async (cx) => {
       if ((await exec("test", ["-s", path])).code !== 0) return false;
       this.avatars.set(owner, file);
@@ -306,6 +399,10 @@ export default class Spaces extends View {
     });
   }
 
+  /**
+   * @param {string} repo
+   * @param {Context} cx
+   */
   watch(repo, cx) {
     if (this.watching.has(repo)) return;
     this.watching.add(repo);
@@ -326,6 +423,7 @@ export default class Spaces extends View {
     });
   }
 
+  /** @param {SpaceInfo} w */
   menu(w) {
     // A popup is as tall as its items; height is only the most.
     openOverlay({
@@ -338,8 +436,13 @@ export default class Spaces extends View {
   }
 
   // Spaces in order, each worktree space moved under its main checkout's.
+  /**
+   * @param {PaneInfo[]} ps
+   * @returns {Row[]}
+   */
   ordered(ps) {
     const sp = spaces();
+    /** @param {SpaceInfo} w */
     const ready = (w) =>
       this.shown.has(w.id) ||
       where(w, ps) in this.git ||
@@ -349,7 +452,9 @@ export default class Spaces extends View {
       .map((w, i) => ({ w, i, g: this.git[where(w, ps)] ?? null }))
       .filter((r) => this.shown.has(r.w.id));
     const mains = new Set(list.filter((r) => r.g && !r.g.linked).map((r) => r.g.repo));
+    /** @param {Omit<Row, "tree">} r */
     const nested = (r) => r.g?.linked && mains.has(r.g.repo);
+    /** @type {Row[]} */
     const out = [];
     const placed = new Set(); // repos whose worktrees are listed (under the first of its spaces)
     for (const r of list) {
@@ -364,6 +469,10 @@ export default class Spaces extends View {
   }
 
   // The rows, under a header per machine once one isn't this computer.
+  /**
+   * @param {Theme} t
+   * @param {boolean} collapsed
+   */
   grouped(t, collapsed) {
     const ps = panes();
     const rows = this.ordered(ps);
@@ -379,6 +488,7 @@ export default class Spaces extends View {
     const repos = Object.fromEntries(rows.filter((r) => r.g).map((r) => [r.w.id, title(r.w, r.g)]));
     if (JSON.stringify(repos) !== JSON.stringify(shared("space.repos") ?? {}))
       setShared("space.repos", repos);
+    /** @param {Row} r */
     const draw = (r) => (collapsed ? this.compact(r, t) : this.spaceGroup(r, t));
     const remote = [
       ...new Set([
@@ -386,6 +496,7 @@ export default class Spaces extends View {
         ...this.machines.map((m) => m.name),
       ]),
     ].sort();
+    /** @param {string | null} m */
     const loading = (m) => {
       const layout = machines().find((k) => k.name === m)?.layout;
       return (
@@ -394,6 +505,7 @@ export default class Spaces extends View {
         spaces().some((s) => (s.machine ?? null) === m && !this.shown.has(s.id))
       );
     };
+    /** @param {string | null} m */
     const loadingRow = (m) =>
       div()
         .id(`machine-loading-${m ?? "local"}`)
@@ -422,7 +534,8 @@ export default class Spaces extends View {
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
         .on_click((_e, cx) => {
-          folded ? this.folded.delete(m) : this.folded.add(m);
+          if (folded) this.folded.delete(m);
+          else this.folded.add(m);
           localStorage.setItem("machines.folded", JSON.stringify([...this.folded]));
           cx.notify();
         })
@@ -496,15 +609,24 @@ export default class Spaces extends View {
   }
 
   // Only what's unusual, after the name: "herdr \u00b7 spike \u21931 \u21912 \u00b7 ?3 M2". The counts
-  // use `git_state`'s glyphs, order and ANSI slots (see git-state.sh). The repo or
+  // use a shell prompt's git glyphs, order and ANSI slots, so both read alike. The repo or
   // branch goes when the name already says it (a worktree is named after its branch),
   // and master/main go: nearly every space is on one.
+  /**
+   * @param {Git} g
+   * @param {string | null} tree
+   * @param {string} name
+   * @param {Theme} t
+   */
   gitTail(g, tree, name, t) {
     const raw = g.branch ?? "detached";
+    /** @param {string} a */
     const same = (a) => a.toLowerCase() === name.toLowerCase();
     const branch = same(raw) || raw === "master" || raw === "main" ? "" : raw;
     const repo = tree || same(g.name) ? "" : g.name;
     const where = [repo, branch].filter(Boolean).join(" \u00b7 ");
+    /** @typedef {[glyph: string, n: number, color: Color]} Count */
+    /** @param {Count[]} parts */
     const shown = (parts) => parts.filter(([, count]) => count > 0);
     const commits = shown([
       ["\u2193", g.behind, t.ansi12],
@@ -516,6 +638,7 @@ export default class Spaces extends View {
       ["D", g.deleted, t.ansi1],
       ["U", g.unmerged, t.ansi9],
     ]);
+    /** @param {Count} count */
     const count = ([glyph, n, color]) => div().flex_none().text_color(color).child(`${glyph}${n}`);
     const place = h_flex()
       .flex_1()
@@ -538,11 +661,16 @@ export default class Spaces extends View {
     return commits.length + changes.length ? [place, counts] : [place];
   }
 
+  /**
+   * @param {Row} row
+   * @param {Theme} t
+   */
   row({ w, i, g, tree }, t) {
     const on = w.active;
-    const colors = shared("space.colors") ?? {};
+    const colors = spaceColors();
     const color = colors[w.id] ?? "ansi6";
-    const fill = color.startsWith("#") ? color : (MARK[color] ?? t[color]);
+    // A stored color is a palette name or, set by hand, a hex color.
+    const fill = color.startsWith("#") ? /** @type {Color} */ (color) : (MARK[color] ?? t[color]);
     const avatar = this.avatars.get(g?.owner);
     const name = title(w, g);
     return v_flex()
@@ -593,6 +721,10 @@ export default class Spaces extends View {
       );
   }
 
+  /**
+   * @param {Row} r
+   * @param {Theme} t
+   */
   spaceGroup(r, t) {
     const { w, i } = r;
     return (
@@ -635,6 +767,10 @@ export default class Spaces extends View {
     );
   }
 
+  /**
+   * @param {Row} row
+   * @param {Theme} t
+   */
   compact({ w, i }, t) {
     return h_flex()
       .id(`space-${w.id}`)
@@ -654,17 +790,16 @@ export default class Spaces extends View {
   }
 
   render() {
-    const t = theme();
+    const t = /** @type {Theme} */ (theme());
     const collapsed = narrow();
     const palette = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
     const sp = spaces();
     const ids = new Set(sp.map((p) => p.id));
-    const kept = Object.fromEntries(
-      Object.entries(shared("space.colors") ?? {}).filter(([id]) => ids.has(id)),
-    );
-    let changed = Object.keys(kept).length !== Object.keys(shared("space.colors") ?? {}).length;
+    const kept = Object.fromEntries(Object.entries(spaceColors()).filter(([id]) => ids.has(id)));
+    let changed = Object.keys(kept).length !== Object.keys(spaceColors()).length;
     for (const p of sp) {
       if (kept[p.id] || p.name === "~") continue;
+      /** @param {string} c */
       const uses = (c) => Object.values(kept).filter((v) => v === c).length;
       kept[p.id] = palette.reduce((best, c) => (uses(c) < uses(best) ? c : best));
       changed = true;

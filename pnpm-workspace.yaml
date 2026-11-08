@@ -1,3 +1,7 @@
+# apps/<name>/ is one Herdr gallery item, published as it is in git; packages/ holds code apps share.
+packages:
+  - apps/*
+  - packages/*
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vite-plus: 1.0.0

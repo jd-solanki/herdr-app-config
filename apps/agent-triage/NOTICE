@@ -1,0 +1,16 @@
+Agent triage
+Copyright jd-solanki
+
+This mod is derived from the `agents` mod, version 0.1.13, of the Herdr app
+(https://github.com/herdrdev/herdr-app), Copyright the Herdr authors, licensed under the
+Apache License, Version 2.0.
+
+Changes from the original, by jd-solanki:
+- Only the priority view: the "Grouped by space" view, the sort menu popup and the
+  `agents.sort` shared key are removed.
+- All four priority sections (Needs you, Done, Working, Idle) always show, even empty.
+- Sections start folded except the most urgent one with agents; each then folds on its own.
+- Rows show the space's repo name and its owner's avatar from the `space.repos` and
+  `space.avatars` shared keys written by the `spaces-avatars` mod, falling back to the
+  space name and program icon.
+- JSDoc types, checked against Herdr's herdr.d.ts and gpui-kit.d.ts.

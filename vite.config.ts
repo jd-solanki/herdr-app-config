@@ -7,7 +7,8 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  // One build per mod: Herdr loads one main.js per mod folder, so shared code is inlined, never split into chunks.
+  // src/ mods only (apps/ ship unbuilt). A mod can't import outside its own folder, so code
+  // shared across src/ is inlined into each mod's build, never split into chunks.
   pack: mods.map((name) => ({
     entry: { main: `src/mods/${name}/main.js` },
     outDir: `dist/mods/${name}`,

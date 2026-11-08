@@ -1,0 +1,8 @@
+{
+  "name": "@herdr-app-config/agent-triage",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Herdr Agents sidebar: agents ranked by what needs you, in sections that fold",
+  "license": "Apache-2.0",
+  "type": "module"
+}

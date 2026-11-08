@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import { defineConfig } from "vite-plus";
 
 const mods = readdirSync("src/mods");
+const VENDORED = ["types/**", ".agents/**", ".claude/**", "skills-lock.json"];
 
 export default defineConfig({
   staged: {
@@ -18,15 +19,16 @@ export default defineConfig({
     // Herdr supplies every bare import (gpui-kit, gpui-base, herdr, fs/promises, crypto) at run time.
     deps: { neverBundle: [/^[^./]/] },
   })),
-  // types/ is Herdr's generated API, refreshed by `pnpm run types`.
+  // types/ is Herdr's generated API, refreshed by `pnpm run types`. The skills CLI owns the
+  // installed skills: a reformat breaks their skills-lock.json hashes.
   lint: {
-    ignorePatterns: ["types/**"],
+    ignorePatterns: VENDORED,
     options: {
       typeAware: true,
       typeCheck: true,
     },
   },
   fmt: {
-    ignorePatterns: ["types/**"],
+    ignorePatterns: VENDORED,
   },
 });

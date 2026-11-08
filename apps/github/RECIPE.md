@@ -1,6 +1,6 @@
 # GitHub tab
 
-A space's GitHub issues and pull requests, in a tab: the ones in the repo the space's terminal is in, filtered by any GitHub search query. Each one opens inside the app, with its description and comments, Mermaid diagrams drawn and images shown. Labels can be changed straight from the list. It opens as a tab from a key, and from a **GitHub** button in the tab bar.
+A space's GitHub issues and pull requests, in a tab: the ones in the repo the space's terminal is in, filtered by any GitHub search query. Each one opens inside the app, with its description and comments, Mermaid diagrams drawn and images shown. Labels can be changed straight from the list. It opens as a tab from a key, and from a **GitHub** button in the tab bar; a layout can put it in the side panel instead.
 
 ![GitHub tab](preview.png)
 
@@ -54,7 +54,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 
 ## How it behaves
 
-- **Its space.** With `props.space` it shows that space. Without, it takes the space active when it starts and stays with it.
+- **Its space.** With `props.space` it shows that space. Without, it shows the active space, checked on every render, so in a side panel it follows space switches like Files and Changes.
 - **Its repo.** The space's repo is its first terminal's: the folder of the first pane in one of the space's tabs that has a folder, else the space's `folder`, on the space's machine. That folder's git top level is used. It is checked again on every render, so a terminal moving to another repo moves the tab. Moving within the repo changes nothing. A new repo closes the open detail page and the label picker.
 - **Kinds and queries.** "Issues" and "PRs" switch the kind. A preset chip sets the search box and runs its query. Enter in the search box runs the typed query when no suggestion is showing. The query is gh's `--search`, with `--state all`, so the query decides the state: `is:closed` works.
 - **Remembered.** The kind and query, in the shared key `github.lastView` (`{ kind, query }`), written whenever either changes. A new GitHub tab, in any space, opens on them. A fresh install opens on Issues with `is:open`.
@@ -87,7 +87,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
   - `mermaid-svg`, a Bun script: `mermaid-svg <source> <palette json> <folder>`. It renders the source with `pele@1.13.0`, which Bun installs on first run. Pele colors with CSS variables, which SVG image renderers ignore, so it inlines every `var(--…)` inside tags, up to 4 deep. The values are the palette over the declarations in Pele's root `<svg style>`. It writes `<sha256 of the SVG>.svg` into the folder and prints `{ "name", "width", "height" }`. On a render error it prints the message to stderr and exits 1.
   - `github-search/`: the shared `github-search` package (`index.js`, `qualifiers.js`, `search-box.js`, `suggestions.js`), copied in and imported as `./github-search/index.js`. Its `SearchBox` is the search box and its suggestions. `ISSUE_QUALIFIERS` and `PULL_QUALIFIERS` are the lists for each kind.
 - **A key**, in `keys.json` beside it: `ctrl-shift-g` runs `tab.new { name: "GitHub", mod: "github" }`.
-- **A GitHub button**, recommended: the [tab-bar](../tab-bar/) mod shows the button `mod.json` declares. Because of `per_space`, pressing it goes to the shown space's GitHub tab, or opens one with `props: { space: <space id> }`.
+- **A GitHub button**, recommended: the [tab-bar](../tab-bar/) mod shows the button `mod.json` declares. Because of `per_space`, pressing it goes to the shown space's GitHub tab, or opens one with `props: { space: <space id> }`. When the layout's `panel-body` stack has a block with id `github`, the button toggles that side panel instead.
 - **Elements:**
   - From `gpui-kit`: `View`, `div`, `image` and `svg`.
   - From `gpui-base`: `v_flex`, `h_flex`, `Input`, `InputState` and `TextView.markdown(…).selectable().on_link_click(…)`. Also `Popover`, anchored `top_left`, controlled with `open()` and `on_open_change()`, its content built only while open. The search box adds `Popup`.
@@ -136,7 +136,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 - **Fetched text is untrusted and runs through the parsers inside render.** Find Mermaid blocks with a fence of 3 or more backticks or tildes, at most 3 spaces in, info string exactly `mermaid`. An unclosed fence runs to the end of the text. In multiline mode `^` also matches after CR, U+2028 and U+2029, so the opener's checks must stop at any line terminator.
 - **One fetch at a time for diagrams and images.** The job count comes from fetched text, and `cx.spawn` throws at 1024 outstanding host tasks, so they go through a single queue.
 - **Theme lookups:** build the Mermaid palette once per page, not once per block. A `theme()` call per block exhausts the render budget at 2,000 blocks.
-- **The space is fixed at start** when there is no `props.space`. A mod pane can't see its own tab, so the key's tab takes the active space and stays with it.
+- **Without `props.space` it shows the active space.** A mod pane can't see its own tab; a tab is only shown in its own space, and the side panel must follow space switches, so never fix the space at start.
 - **Popover closes:** Herdr sends no close for a popover whose row is gone, so drop the drafts of rows no longer listed. Otherwise a draft reopens on the next row with that number.
 - **Paths name the mod's folder.** These all say `github`: the state icons and `mermaid-svg` (`mods/github/…`) and the overlay's `mod: "github"`. If the mod is renamed, change them too. Images and diagrams live under `data/github/`, not in the mod's folder, because a new file there reloads the mod.
 - Only the first 200 of a repo's labels are listed, and the list shows at most 100 issues or pull requests.
@@ -157,3 +157,4 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 - In the label picker, ticking one label and unticking another, then closing the picker, changes both on GitHub in one edit. The row shows the new labels.
 - `cd` into another repo in the space's terminal, and the tab lists that repo's issues.
 - With tab-bar, the GitHub button opens the shown space's GitHub tab, or goes back to it.
+- With a `github` block in the side panel, the button toggles the panel, and switching spaces lists the new space's repo.

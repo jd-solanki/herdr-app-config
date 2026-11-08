@@ -162,6 +162,13 @@
                       "content": {
                         "mod": "github-inbox"
                       }
+                    },
+                    {
+                      "id": "github",
+                      "type": "block",
+                      "content": {
+                        "mod": "github"
+                      }
                     }
                   ]
                 }

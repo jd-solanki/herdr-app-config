@@ -111,7 +111,6 @@ const CURL = `curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M
 const AUTHED_CURL = `gh auth token \${3:+-u "$3"} | sed 's/^/Authorization: token /' | ${CURL}`;
 
 export default class GitHub extends View {
-  declare spaceId: string;
   declare kind: Kind;
   declare query: string;
   declare openWork: number | null;
@@ -128,9 +127,6 @@ export default class GitHub extends View {
   declare place: Place | null;
 
   init(_props: unknown, cx: AsyncContext) {
-    // A mod pane can't see its own tab, so without props.space it takes the space shown when it
-    // starts: a key or tab.new opens it in the active space.
-    this.spaceId = props()?.space ?? spaces().find((space) => space.active)?.id;
     const lastView = shared(LAST_VIEW_KEY) as { kind?: Kind; query?: unknown } | null;
     this.kind = KINDS[lastView?.kind] ? lastView.kind : "issues";
     this.query = typeof lastView?.query === "string" ? lastView.query : PRESETS[0].query;
@@ -327,7 +323,10 @@ export default class GitHub extends View {
   }
 
   followSpace(cx: Context) {
-    const space = spaces().find(({ id }) => id === this.spaceId);
+    // A mod pane can't see its own tab, so without props.space it shows the active space: in a
+    // tab that is the tab's space, in the side panel it follows space switches like Files.
+    const id = props()?.space;
+    const space = spaces().find((space) => (id ? space.id === id : space.active));
     const folder = space ? terminalFolder(space) : null;
     if (JSON.stringify(folder) === JSON.stringify(this.folder)) return;
     this.folder = folder;

@@ -49,7 +49,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
   - Text, as selectable Markdown.
   - Each Mermaid code block, drawn as a diagram at its own width and height, scrolling sideways when wider. It says "Rendering diagram…" in `muted` while drawing. If drawing fails it shows the error and the block's source as a code block.
   - Each image becomes a link, "🖼 alt" ("🖼 image" without alt text, `[` and `]` removed). An image that was itself a link (`[![alt](image)](href)`) links to `href`.
-  - Under the text, a wrapping row of thumbnails, 8px apart, one per distinct image. Each is 240×140px with 6px radius and a 1px `border` line, the image filling it. It says "Loading image…" or the error at 11px `muted` with 8px padding until the image arrives. A loaded thumbnail shows a pointer cursor and an `accent` line under the pointer.
+  - Under the text, a wrapping row of thumbnails, 8px apart, one per distinct image hosted on GitHub (`https://github.com/…` or `https://<name>.githubusercontent.com/…`). Any other image is only its link. Each is 240×140px with 6px radius and a 1px `border` line, the image filling it. It says "Loading image…" or the error at 11px `muted` with 8px padding until the image arrives. A loaded thumbnail shows a pointer cursor and an `accent` line under the pointer.
 - **The full-size image**, a dialog 90% of the window wide and high: the image filling it, 8px padding, on `background`.
 
 ## How it behaves
@@ -123,15 +123,16 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
     curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M --max-time 25 -H @- -w '%{content_type}' -o "$2" -- "$1"
     ```
 
-    For `https://github.com/…` and `https://<name>.githubusercontent.com/…` URLs, `gh auth token ${3:+-u "$3"} | sed 's/^/Authorization: token /' |` comes before it. For any other URL, `</dev/null` comes after it.
+    `gh auth token ${3:+-u "$3"} | sed 's/^/Authorization: token /' |` comes before it. Only GitHub-hosted URLs are downloaded; any other is the error "Not a GitHub image: <url>", before curl runs.
 
   - Then `mv <part> <appHome>/data/github/images/<sha256 of the URL>.<ext>`. The part file is `<sha256>.<random UUID>.part` in the same folder and is always removed afterwards.
 - **Data folders**, under the app home: `data/github/images/` and `data/github/mermaid/`. Both are drawn by their path relative to it.
 
 ## Watch out
 
-- **It runs programs and reaches the network.** `gh` runs with the person's own login, in the repo's folder, so gh's account follows that repo. `curl` fetches images from any `https` URL a post contains, and `bun` downloads Pele from npm on the first diagram. Without `bun`, every diagram shows its error and its source.
-- **The token goes in on stdin.** `gh auth token` is piped to curl as an `Authorization` header via `-H @-`, so the token never shows in argv. It is sent only to github.com and `*.githubusercontent.com`. curl drops it on the redirect to S3. The login it picks is the repo's `git config user.name`, the rule the person's gh wrapper uses for choosing an account. Other hosts get no header.
+- **It runs programs and reaches the network.** `gh` runs with the person's own login, in the repo's folder, so gh's account follows that repo. `curl` fetches the images a post contains from github.com and `*.githubusercontent.com` only, and `bun` downloads Pele from npm on the first diagram. Without `bun`, every diagram shows its error and its source.
+- **The token goes in on stdin.** `gh auth token` is piped to curl as an `Authorization` header via `-H @-`, so the token never shows in argv. It is sent only to github.com and `*.githubusercontent.com`. curl drops it on the redirect to S3. The login it picks is the repo's `git config user.name`, the rule the person's gh wrapper uses for choosing an account.
+- **Only GitHub-hosted images are downloaded.** Any other host would learn the person's IP and when they read the post, so a tracking pixel in a comment would work. The download refuses other hosts itself, so no future caller can send it the token.
 - **Only images are kept.** The download must report `image/png`, `jpeg`/`jpg`, `gif`, `webp`, `svg` or `bmp` as its content type; anything else is the error "Not an image: <url>". Herdr picks the decoder by file extension, so the extension comes from that type. Downloads are https-only, redirects included, at most 20 MB and 25 s.
 - **Fetched text is untrusted and runs through the parsers inside render.** Find Mermaid blocks with a fence of 3 or more backticks or tildes, at most 3 spaces in, info string exactly `mermaid`. An unclosed fence runs to the end of the text. In multiline mode `^` also matches after CR, U+2028 and U+2029, so the opener's checks must stop at any line terminator.
 - **One fetch at a time for diagrams and images.** The job count comes from fetched text, and `cx.spawn` throws at 1024 outstanding host tasks, so they go through a single queue.
@@ -154,6 +155,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 - A press on a row opens it with its description, comments and facts (branch and diff size for a PR). "↗" opens it in the browser, and "← Back" returns to the list.
 - A ` ```mermaid ` block draws as a diagram in the theme's colors. A broken one shows its error and source.
 - An image in a post shows as a "🖼" link and a thumbnail, including a private repo's `user-attachments` image. Clicking either opens it at 90% of the window, and Esc closes it.
+- An image from another host (`![x](https://example.com/x.png)`) shows only as a "🖼 x" link, nothing is downloaded, and clicking it opens the browser.
 - In the label picker, ticking one label and unticking another, then closing the picker, changes both on GitHub in one edit. The row shows the new labels.
 - `cd` into another repo in the space's terminal, and the tab lists that repo's issues.
 - With tab-bar, the GitHub button opens the shown space's GitHub tab, or goes back to it.

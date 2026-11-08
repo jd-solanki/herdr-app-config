@@ -38,7 +38,7 @@ follows that repo. The first diagram needs network, because `bun` downloads Pele
 - Click a row to read it in the app. The ↗ button opens the browser.
 - Click a row's labels to pick them. It shows the first few labels; type to find the rest. Ticking does nothing until
   the picker closes, which saves every change in one call.
-- Images show as 🖼 links and as thumbnails under the post. Click either to see it full size; Esc closes it.
+- Images show as 🖼 links. One hosted on GitHub (github.com, *.githubusercontent.com) also shows as a thumbnail under the post; click either to see it full size, and Esc closes it. Any other image stays a link that opens in the browser, so its host never learns when you read the post.
 
 [RECIPE.md](RECIPE.md) describes it exactly, enough for an agent to build it again.
 

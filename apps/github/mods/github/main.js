@@ -55,8 +55,10 @@ const DIAGRAM_FOLDER = "data/github/mermaid";
 // Shipped beside main.js; the path names the mod's folder, so renaming the mod changes it too.
 const MOD_FOLDER = "mods/github";
 const IMAGE_FOLDER = "data/github/images";
-// TextView draws no images, so each becomes a link and a thumbnail. Groups: markdown alt, markdown URL, <img> src.
+// TextView draws no images, so each becomes a link, and a GitHub-hosted one also a thumbnail. Groups: markdown alt, markdown URL, <img> src.
 const IMAGE = /!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)|<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+// Only these are downloaded: any other host would learn your IP and when you read the post.
+const GITHUB_ASSET = /^https:\/\/(github\.com|[\w-]+\.githubusercontent\.com)\//;
 // A linked image, [![alt](image)](href): one link to href, so no link sits inside another. Groups: alt, image URL, href.
 const LINKED_IMAGE = /\[\s*!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)\s*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
 const CURL = `curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M --max-time 25 -H @- -w '%{content_type}' -o "$2" -- "$1"`;
@@ -541,21 +543,13 @@ async function downloadImage(url, place) {
   const name = createHash("sha256").update(url).digest("hex");
   // One temp file per call: tabs in other spaces can fetch the same URL at once.
   const part = `${folder}/${name}.${randomUUID()}.part`;
-  const github = /^https:\/\/(github\.com|[\w-]+\.githubusercontent\.com)\//.test(url);
+  // The gh token goes with every request, so no other host is ever fetched.
+  if (!GITHUB_ASSET.test(url)) throw new Error(`Not a GitHub image: ${url}`);
   // The gh wrapper's account rule: the repo's user.name is the login.
-  const login = github
-    ? (await stdoutOf("git", ["config", "user.name"], place).catch(() => "")).trim()
-    : "";
+  const login = (await stdoutOf("git", ["config", "user.name"], place).catch(() => "")).trim();
   await mkdir(folder, { recursive: true });
   try {
-    const type = await stdoutOf("sh", [
-      "-c",
-      github ? AUTHED_CURL : `${CURL} </dev/null`,
-      "sh",
-      url,
-      part,
-      login,
-    ]);
+    const type = await stdoutOf("sh", ["-c", AUTHED_CURL, "sh", url, part, login]);
     // Herdr picks the decoder by extension, so only a known image type names the file.
     const extension = type.match(/^image\/(png|jpe?g|gif|webp|svg|bmp)\b/i)?.[1].toLowerCase();
     if (!extension) throw new Error(`Not an image: ${url}`);
@@ -869,7 +863,7 @@ function splitDiagrams(body) {
 function bodyParts(id, body, { diagramOf, pictureOf, onLink }, colors) {
   const urls = new Set();
   const imageLink = (imageUrl, alt, href = imageUrl) => {
-    urls.add(imageUrl);
+    if (GITHUB_ASSET.test(imageUrl)) urls.add(imageUrl);
     return `[🖼 ${alt.replace(/[[\]]/g, "") || "image"}](${href})`;
   };
   const parts = splitDiagrams(body || "No description")

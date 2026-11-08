@@ -17,9 +17,15 @@ import {
   watchFolder,
 } from "herdr";
 
+/** @import { AsyncContext, Color } from "gpui-kit" */
+/** @import { SpaceInfo, TabInfo } from "herdr" */
+/** @typedef {{ id?: string, hidden?: boolean, active?: string, size?: { px?: number }, children?: LayoutNode[], traffic_lights?: number[] }} LayoutNode */
+/** @typedef {{ mod: string, label: string, icon?: string, per_space?: boolean }} Button */
+
 // A mod declares its tab bar button in its own mod.json, read here, because a mod runs only
 // while shown: a button it registered itself could never open it.
 // { "button": { "label": "GitHub", "icon": "<path under the app home>", "per_space": true } }
+/** @returns {Promise<Button[]>} */
 async function declaredButtons() {
   const root = `${appHome()}/mods`;
   const found = await Promise.all(
@@ -32,9 +38,10 @@ async function declaredButtons() {
       }
     }),
   );
-  return found.filter(Boolean).sort((a, b) => a.label.localeCompare(b.label));
+  return found.filter((b) => b !== null).sort((a, b) => a.label.localeCompare(b.label));
 }
 
+/** @param {LayoutNode | null | undefined} node @param {string} id @returns {LayoutNode | null} */
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
@@ -45,21 +52,30 @@ function find(node, id) {
 }
 
 export default class Tabs extends View {
+  /** @param {unknown} _props @param {AsyncContext} cx */
   init(_props, cx) {
+    /** @type {number | null} */
     this.pressed = null;
+    /** @type {string | undefined} */
+    this.space = undefined;
+    /** @type {{ want: string | null, until: number } | null} */
+    this.pending = null;
+    /** Space id to the panel it had open. @type {Record<string, string | null>} */
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
+    /** @type {Button[]} */
     this.declared = [];
     cx.spawn(async (cx) => {
       const mods = `${appHome()}/mods`;
       for (;;) {
         this.declared = await declaredButtons();
         cx.notify();
+        /** @type {string[]} */
         let changed;
         do changed = await watchFolder(mods);
         while (!changed.some((path) => path === mods || path.endsWith("/mod.json")));
       }
     });
-    // `<this mod>.<declaring mod>` in keys.json presses that mod's button.
+    // `tab-bar.<declaring mod>` in keys.json presses that mod's button.
     cx.spawn(async (cx) => {
       for (;;) {
         const command = await nextCommand();
@@ -71,16 +87,20 @@ export default class Tabs extends View {
   }
 
   // props.buttons on the layout block picks and orders the declared buttons; without it, all.
+  /** @returns {Button[]} */
   buttons() {
     const wanted = props()?.buttons;
     if (!Array.isArray(wanted)) return this.declared;
-    return wanted.map((mod) => this.declared.find((b) => b.mod === mod)).filter(Boolean);
+    return wanted
+      .map((mod) => this.declared.find((b) => b.mod === mod))
+      .filter((b) => b !== undefined);
   }
 
   // A button whose mod has a block in the panel stack toggles the panel; any other goes to
   // the space's tab showing that mod, or opens one.
+  /** @param {Button} button */
   press(button) {
-    const root = layout(),
+    const root = /** @type {LayoutNode} */ (layout()),
       panel = find(root, "panel"),
       body = find(root, "panel-body");
     if (body?.children?.some((c) => c.id === button.mod)) {
@@ -103,12 +123,14 @@ export default class Tabs extends View {
       });
   }
 
+  /** @param {SpaceInfo | undefined} space @param {string} mod */
   modTab(space, mod) {
     return panes().find((p) => p.mod === mod && space?.tabs.some((c) => c.id === p.tab))?.tab;
   }
 
   // The side panel is remembered per space: switching shows that space's choice
   // (closed if it never had one), and opening or closing it records it.
+  /** @param {SpaceInfo | undefined} space @param {LayoutNode | null} panel @param {LayoutNode | null} body @param {string[]} enabled */
   syncPanel(space, panel, body, enabled) {
     if (!space || !panel) return;
     const now = panel.hidden ? null : (body?.active ?? null);
@@ -140,11 +162,15 @@ export default class Tabs extends View {
   }
 
   render() {
-    const t = theme();
+    // herdr.d.ts types the theme as plain strings; its values are #rrggbb colors.
+    const t = /** @type {Record<string, Color>} */ (theme());
     const space = spaces().find((p) => p.active);
     const shown = space?.tabs ?? [];
-    const titles = shared("tab.titles") ?? {};
+    // Any mod may fill this slot: tab id to the label an unnamed tab shows.
+    const labels = /** @type {Record<string, string>} */ (shared("tab-bar.labels") ?? {});
+    /** @param {unknown} _e @param {{ stop_propagation(): void }} cx */
     const stop = (_e, cx) => cx.stop_propagation();
+    /** @param {string} id @param {any} label @param {() => void} action */
     const button = (id, label, action) =>
       div()
         .id(id)
@@ -159,14 +185,14 @@ export default class Tabs extends View {
         .on_mouse_down("left", stop)
         .on_click(action)
         .child(label);
+    /** @param {TabInfo} c @param {number} i */
     const item = (c, i) => {
       const program = (
         panes().find((p) => p.tab === c.id && p.program?.agent) ??
         panes().find((p) => p.tab === c.id)
       )?.program;
       const auto = !c.named || c.name === program?.name;
-      // tab-title publishes an unnamed tab's agent title (Claude Code sets one per session).
-      const name = !auto ? c.name : (titles[c.id] ?? program?.name ?? "Terminal");
+      const name = !auto ? c.name : (labels[c.id] ?? program?.name ?? "Terminal");
       return h_flex()
         .id(`tab-${c.id}`)
         .h(29)
@@ -244,7 +270,7 @@ export default class Tabs extends View {
           ),
         );
     };
-    const root = layout(),
+    const root = /** @type {LayoutNode} */ (layout()),
       sidebar = find(root, "sidebar"),
       w = window();
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
@@ -252,7 +278,7 @@ export default class Tabs extends View {
       w?.platform === "macos" && w.titlebar === "none" && !w.fullscreen && root?.traffic_lights
         ? Math.max(
             10,
-            (root.traffic_lights[0] + 64) / settings().zoom -
+            (root.traffic_lights[0] + 64) / /** @type {number} */ (settings().zoom) -
               (sidebar?.hidden ? 0 : (sidebar?.size?.px ?? 0)),
           )
         : 10;
@@ -260,10 +286,11 @@ export default class Tabs extends View {
       body = find(root, "panel-body");
     const buttons = this.buttons();
     const enabled = [
-      ...(shared("workspace.panels") ?? ["files", "changes"]),
+      .../** @type {string[]} */ (shared("workspace.panels") ?? ["files", "changes"]),
       ...buttons.filter((b) => body?.children?.some((c) => c.id === b.mod)).map((b) => b.mod),
     ];
     this.syncPanel(space, panel, body, enabled);
+    /** @param {string} id @param {string} label @param {string | null} icon @param {boolean} on @param {() => void} action */
     const barButton = (id, label, icon, on, action) =>
       h_flex()
         .id(id)
@@ -281,6 +308,7 @@ export default class Tabs extends View {
         .on_click(action)
         .when(Boolean(icon), (el) => el.child(svg(icon).size(14)))
         .child(label);
+    /** @param {string} id @param {string} label @param {string} icon */
     const panelButton = (id, label, icon) => {
       const on = panel && !panel.hidden && body?.active === id;
       return barButton(`panel-${id}`, label, icon, on, () => {

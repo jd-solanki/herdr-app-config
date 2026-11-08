@@ -27,11 +27,11 @@ if [ -f "$keys" ]; then
     const keys = JSON.parse(fs.readFileSync(path, "utf8"));
     const wanted = [
       ...appKeys.map((file) => JSON.parse(fs.readFileSync(file, "utf8"))),
-      // After the apps: these keys press workspace-tabs buttons, which go back to an open tab.
+      // After the apps: these keys press tab-bar buttons, which go back to an open tab.
       {
         global: {
-          "ctrl-shift-g": "workspace-tabs.github",
-          "ctrl-shift-i": "workspace-tabs.github-inbox",
+          "ctrl-shift-g": "tab-bar.github",
+          "ctrl-shift-i": "tab-bar.github-inbox",
         },
       },
     ];

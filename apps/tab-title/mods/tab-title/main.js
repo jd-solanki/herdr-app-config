@@ -1,13 +1,18 @@
 import { View, div } from "gpui-kit";
 import { exec, notify, panes, run, setShared, shared, spaces } from "herdr";
 
+/** @import { AsyncContext } from "gpui-kit" */
+/** @import { SpaceInfo, TabInfo } from "herdr" */
+
 const ISSUE_NAME = /^#(\d+)$/;
 
 // Only a name that is exactly #<number>, so the mod's own rename never matches again.
+/** @param {string} tabName */
 export const issueNumber = (tabName) => tabName.match(ISSUE_NAME)?.[1];
 
 const MAX_TITLE_LENGTH = 40;
 
+/** @param {string} issueNumber @param {{ title: string, isPullRequest: boolean }} found */
 export function tabLabel(issueNumber, { title, isPullRequest }) {
   // Code points, so an emoji is never cut in half.
   const characters = Array.from(title);
@@ -18,6 +23,7 @@ export function tabLabel(issueNumber, { title, isPullRequest }) {
   return `${isPullRequest ? "🔀" : "🛠️"} #${issueNumber} ${clamped}`;
 }
 
+/** @param {string} tabId */
 const nameOf = (tabId) =>
   spaces()
     .flatMap((space) => space.tabs)
@@ -51,13 +57,16 @@ function agentTitles() {
 export default class TabTitle extends View {
   init() {
     // `<tab id> <name>` already looked up, so a failed lookup isn't retried on every change.
+    /** @type {Set<string>} */
     this.tried = new Set();
   }
 
+  /** @param {AsyncContext} cx */
   render(cx) {
     const titles = agentTitles();
-    if (JSON.stringify(titles) !== JSON.stringify(shared("tab.titles") ?? {}))
-      setShared("tab.titles", titles);
+    // tab-bar's label slot: a tab bar that reads it shows these for unnamed tabs.
+    if (JSON.stringify(titles) !== JSON.stringify(shared("tab-bar.labels") ?? {}))
+      setShared("tab-bar.labels", titles);
     const now = spaces().flatMap((space) => space.tabs.map((tab) => ({ space, tab })));
     // Forget names a tab no longer has, so naming it #123 again retries.
     this.tried = new Set(
@@ -79,7 +88,7 @@ export default class TabTitle extends View {
         } catch (error) {
           notify({
             title: `Tab ${tab.name}: no title`,
-            body: String(error.message ?? error),
+            body: /** @type {Error} */ (error).message,
             level: "error",
           });
         }
@@ -88,6 +97,7 @@ export default class TabTitle extends View {
     return div();
   }
 
+  /** @param {SpaceInfo} space @param {TabInfo} tab @param {string} number @param {string} cwd */
   async title(space, tab, number, cwd) {
     // The issues endpoint answers for pull requests too, and gives only a pull request the pull_request key.
     const gh = await exec(

@@ -33,8 +33,9 @@ the first diagram needs network, because `bun` downloads Pele then.
 `herdr-app check` runs a mod with no props, so it cannot catch a bug in the tab's space.
 Open the tab to test.
 
-`workspace-tabs` and `workspace` are clones, so Herdr updates never reach them.
-`cloned_from` in `workspace-tabs/mod.json` records the version.
-To take an update, compare it with `~/.config/herdr-app/mods/tabs/main.js`, and compare
+Its button in the [tab bar](../../../apps/tab-bar/) comes from the `button` field in its
+`mod.json`.
+
+The `workspace` layout is a clone, so Herdr updates never reach it. To take an update, compare
 `layouts/workspace.json` with `~/.config/herdr-app/layouts/main.json`. Only the `mod`
 lines naming this repo's clones, the `tab-title` block and the `github-inbox` panel should differ.

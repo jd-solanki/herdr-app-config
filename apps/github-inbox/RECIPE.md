@@ -29,9 +29,9 @@ The mod fills its pane on the theme's `background`, 10px padding, 10px between i
 
 ## Built from
 
-- **One mod**, `mods/github-inbox/`, with `main.js`, `mod.json` (`"place": "none"`, `"title": "GitHub inbox"`, and `"button": { "label": "Inbox", "icon": "mods/github-inbox/inbox.svg" }`, which Herdr ignores and a tab bar that hosts declared buttons reads) and its four icons, `issue.svg`, `pr.svg`, `comment.svg` and `inbox.svg` (Lucide, ISC, 24px viewBox, `stroke="currentColor"`), drawn by their path under the app folder, `mods/github-inbox/<name>.svg`.
+- **One mod**, `mods/github-inbox/`, with `main.js`, `mod.json` (`"place": "none"`, `"title": "GitHub inbox"`, and `"button": { "label": "Inbox", "icon": "mods/github-inbox/inbox.svg" }`, which Herdr ignores and tab-bar reads) and its four icons, `issue.svg`, `pr.svg`, `comment.svg` and `inbox.svg` (Lucide, ISC, 24px viewBox, `stroke="currentColor"`), drawn by their path under the app folder, `mods/github-inbox/<name>.svg`.
 - **A key**, in `keys.json` beside it: `ctrl-shift-i` runs `tab.new { name: "Inbox", mod: "github-inbox" }`.
-- **An Inbox button**, recommended. A tab bar that reads `button` from each `mod.json` shows it by itself. Otherwise: Herdr's tab bar is its read-only `tabs` mod, so a button means a clone of it, `herdr-app do mod.clone '{"name":"tabs","as":"<name>"}'`, with the layout's `tabs` block pointing at the clone. Beside its Files and Changes buttons, add an "Inbox" button in the same style that selects the tab whose pane shows `github-inbox`, or runs the same `tab.new` when there is none.
+- **An Inbox button**, recommended: the [tab-bar](../tab-bar/) mod (`herdr.dev/mods/jd-solanki/herdr-app-config--apps--tab-bar`) shows the button `mod.json` declares; pressing it goes to the open Inbox tab or opens one. Herdr's own tab bar can't take a button.
 - **Elements:** `View`, `div` and `svg` from `gpui-kit`; `v_flex`, `h_flex`, `Input` and `InputState` from `gpui-base`; colors from `theme()`.
 - **From `herdr`:** `exec()` and `theme()`. The search box's `submit` event runs the query; a 60s `cx.timer.every` refreshes it; `cx.open_url()` opens a row.
 - **The program it runs:** `gh search issues <query words> --include-prs --sort updated --limit 100 --json repository,number,title,author,createdAt,updatedAt,commentsCount,labels,isPullRequest,url`, with no folder, so gh uses the person's default account, the one that sees every repo.
@@ -39,7 +39,7 @@ The mod fills its pane on the theme's `background`, 10px padding, 10px between i
 ## Watch out
 
 - **It runs a program and reaches the network:** `gh`, with the person's own login.
-- **Add the key, then offer the button.** Merge `keys.json` into the person's, asking before replacing a key they already use. Ask before cloning their `tabs` mod; if their layout is Herdr's read-only `main`, clone it first, `herdr-app do layout.clone '{"name":"main","as":"<name>"}'`, and point its `tabs` block at the cloned mod.
+- **Add the key, then offer the button.** Merge `keys.json` into the person's, asking before replacing a key they already use. Then offer tab-bar, following its own recipe.
 - The query is split on spaces, so a quoted value with a space in it (`label:"needs review"`) breaks into two words.
 - `herdr.d.ts` types `theme()` as plain strings; they are `#rrggbb` colors.
 - The icon paths name the mod's folder: if the mod is renamed, change them too.
@@ -51,4 +51,4 @@ The mod fills its pane on the theme's `background`, 10px padding, 10px between i
 - `ctrl-shift-i` opens an Inbox tab listing the person's open assigned issues and pull requests across repos, newest update first, with "N results" above.
 - Typing `state:open author:@me` and pressing Enter lists those instead, and the inbox still shows that query after a restart.
 - A row shows its icon, title, repo and number, author, ages, label chips and comment count; clicking it opens the browser.
-- With the button added, Inbox in the tab bar opens the inbox tab, or goes back to it.
+- With tab-bar, Inbox in the tab bar opens the inbox tab, or goes back to it.

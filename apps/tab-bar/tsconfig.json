@@ -1,0 +1,6 @@
+{
+  // Published apps are checked as Herdr checks a mod: JS against types/, with JSDoc where inference stops.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "checkJs": true },
+  "include": ["mods", "../../types"]
+}

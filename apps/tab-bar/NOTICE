@@ -1,0 +1,15 @@
+Tab bar (tab-bar)
+Copyright jd-solanki
+
+This mod is derived from the `tabs` mod, version 0.1.11, shipped with the Herdr app
+(https://github.com/herdrdev/herdr-app), Copyright the Herdr authors, licensed under the
+Apache License, Version 2.0.
+
+Modified by jd-solanki. Changes from the original:
+
+- After Files and Changes, it shows the buttons other mods declare in the `button` field of
+  their own `mod.json`; `props.buttons` on its layout block picks and orders them.
+- A declared button toggles the mod's side panel when the layout has one, else goes to the
+  space's tab showing that mod or opens one; `tab-bar.<mod>` keys press it.
+- An unnamed tab shows the label another mod puts in the `tab-bar.labels` shared key.
+- JSDoc types for checking against Herdr's type files.

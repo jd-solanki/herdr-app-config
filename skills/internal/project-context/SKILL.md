@@ -61,5 +61,5 @@ governs.
 | `domains/agent-triage.md`      | changing the Agents list app; with gallery-apps.md                                                                                                 |
 | `domains/github-inbox.md`      | changing the GitHub inbox app; with gallery-apps.md                                                                                                |
 | `domains/github.md`            | changing the GitHub tab mod or `mermaid-svg`; with build-and-install.md                                                                            |
-| `domains/tab-title.md`         | changing the tab-title mod; with build-and-install.md                                                                                              |
-| `domains/workspace-tabs.md`    | changing the tab bar, or giving a mod a tab bar button; with build-and-install.md                                                                  |
+| `domains/tab-title.md`         | changing the Tab title app; with gallery-apps.md                                                                                                   |
+| `domains/tab-bar.md`           | changing the Tab bar app, or giving a mod a tab bar button or tab label; with gallery-apps.md                                                      |

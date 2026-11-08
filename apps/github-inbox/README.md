@@ -20,9 +20,8 @@ Tell your agent:
 Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki/herdr-app-config--apps--github-inbox
 ```
 
-`ctrl-shift-i` opens it as a tab. Your agent also offers an **Inbox** button in the tab bar,
-in a clone of Herdr's `tabs` mod; a tab bar that reads `button` from each mod's `mod.json`
-shows it by itself.
+`ctrl-shift-i` opens it as a tab. With [tab-bar](../tab-bar/) it also gets an **Inbox** button
+in the tab bar, and your agent offers to add tab-bar.
 
 ## Use
 

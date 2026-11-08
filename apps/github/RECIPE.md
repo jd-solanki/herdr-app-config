@@ -54,7 +54,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 
 ## How it behaves
 
-- **Its space.** With `props.space` it shows that space. Without, it shows the active space, checked on every render, so in a side panel it follows space switches like Files and Changes.
+- **Its space.** With `props.space` it shows that space. Without, it shows the active space, checked on every render, so in a side panel it follows space switches like Files and Changes. Switching to another space closes the open page and shows Loading until that space's repo is known.
 - **Its repo.** The space's repo is its first terminal's: the folder of the first pane in one of the space's tabs that has a folder, else the space's `folder`, on the space's machine. That folder's git top level is used. It is checked again on every render, so a terminal moving to another repo moves the tab. Moving within the repo changes nothing. A new repo closes the open detail page and the label picker.
 - **Kinds and queries.** "Issues" and "PRs" switch the kind. A preset chip sets the search box and runs its query. Enter in the search box runs the typed query when no suggestion is showing. The query is gh's `--search`, with `--state all`, so the query decides the state: `is:closed` works.
 - **Remembered.** The kind and query, in the shared key `github.lastView` (`{ kind, query }`), written whenever either changes. A new GitHub tab, in any space, opens on them. A fresh install opens on Issues with `is:open`.

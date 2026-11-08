@@ -125,6 +125,7 @@ export default class GitHub extends View {
   declare search: SearchBox;
   declare folder: Place | null;
   declare place: Place | null;
+  declare spaceId: string | undefined;
 
   init(_props: unknown, cx: AsyncContext) {
     const lastView = shared(LAST_VIEW_KEY) as { kind?: Kind; query?: unknown } | null;
@@ -328,7 +329,16 @@ export default class GitHub extends View {
     const id = props()?.space;
     const space = spaces().find((space) => (id ? space.id === id : space.active));
     const folder = space ? terminalFolder(space) : null;
+    // Recorded before the early return, so a later cd in a space reached at the same folder isn't a switch.
+    const switched = space?.id !== this.spaceId;
+    this.spaceId = space?.id;
     if (JSON.stringify(folder) === JSON.stringify(this.folder)) return;
+    // Another space's repo is unknown until repoRoot answers: show Loading, not the last space's list.
+    if (switched) {
+      this.place = null;
+      this.openWork = null;
+      this.labelDrafts.clear();
+    }
     this.folder = folder;
     cx.spawn(async (cx) => {
       // Always yields: a null folder would otherwise reach cx.notify() inside render, which rejects.

@@ -24,7 +24,7 @@ They pair: with both, Agent triage shows each space's avatar and repo name.
 | `workspace-tabs`                              | Herdr's `tabs` mod plus the GitHub and Handed back buttons                     |
 | `src/layouts/workspace.json`                  | Herdr's `main` layout wired to all of the above                                |
 
-## Install my whole setup
+## Setup
 
 Needs the Herdr app, `pnpm` and `bun` (both come with [Vite+](https://viteplus.dev)), and
 `gh` logged in. [dotfiles](https://github.com/jd-solanki/dotfiles) runs all of this in
@@ -40,34 +40,7 @@ mod, the layouts and `bin/mermaid-svg` into place and binds `ctrl-shift-g` to th
 Open the Herdr app once before it, so `keys.json` exists. Then press `ctrl-shift-l`
 (`cmd-shift-l` on the Mac) until the `workspace` layout shows.
 
-## Change it
+## More
 
-```bash
-pnpm dev
-```
-
-Copies every save into `~/.config/herdr-app`, which Herdr reloads live.
-
-- `apps/<name>/` is one gallery item, published exactly as it is in git: its `mods/`, a
-  `RECIPE.md` (the brief another agent can rebuild it from), `preview.png`, `LICENSE` and
-  `NOTICE`. Plain JS, type-checked against `types/` by `vp check` (`checkJs`, JSDoc where
-  inference stops). There's no build: Herdr runs these files.
-- `packages/<name>/` will hold code several apps share.
-- `src/` holds the mods not published yet. They still build with `vp pack` until they move
-  to `apps/`.
-
-`types/` is Herdr's generated API. After a Herdr update, run `pnpm run types` to refresh it.
-
-`herdr-app check <mod folder>` loads a mod once and reports errors. It runs with no props, so
-open the mod in the app to test it for real.
-
-## Publish an app
-
-The gallery lists every folder with a `RECIPE.md` in a public repo with the `herdr-mod` or
-`herdr-layout` topic, within an hour of a push to `main`. This repo has `herdr-mod`; add
-`herdr-layout` with the first layout app. A mod's page is
-`herdr.dev/mods/jd-solanki/herdr-app-config--apps--<name>`.
-
-For `preview.png`, zoom in (`herdr-app do app.zoom_in`), `herdr-app shot`, zoom back
-(`app.zoom_reset`), and crop the mod's part onto a 16:10 canvas in its background color:
-the gallery card is 960×600. Then add the app to the table above.
+- Contributing and project status: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- Commands: the `scripts` block in [`package.json`](./package.json)

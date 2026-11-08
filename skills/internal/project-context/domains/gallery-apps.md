@@ -22,6 +22,11 @@ herdr.dev's public catalogue of mods and layouts, built from public GitHub repos
 
 ## Fences
 
+- **Every app works alone; pairing only adds.** A person may install any one app, so no app
+  needs another of this repo's apps at run time: a shared key from another app reads as empty
+  when that app is missing, and a declared button does nothing without the tab bar. Code apps
+  share is copied in at build time, never loaded from another app.
+  `apps/agent-triage/src/main.ts:Agents`
 - **An app's build is committed with its source.** The gallery publishes `mods/` from git,
   so a source change without its rebuilt `main.js` publishes the old app; the pre-commit check
   fails a commit whose build is stale. Never edit an app's built `main.js` by hand.

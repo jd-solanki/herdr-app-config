@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import {
@@ -13,12 +13,27 @@ import {
   settings,
   nextCommand,
   appHome,
+  props,
+  watchFolder,
 } from "herdr";
 
-// Lucide (ISC). Written under the app folder, so the mod stays one built main.js.
-const INBOX_ICON = "data/workspace-tabs/inbox.svg";
-const INBOX_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>';
+// A mod declares its tab bar button in its own mod.json, read here, because a mod runs only
+// while shown: a button it registered itself could never open it.
+// { "button": { "label": "GitHub", "icon": "<path under the app home>", "per_space": true } }
+async function declaredButtons() {
+  const root = `${appHome()}/mods`;
+  const found = await Promise.all(
+    (await readdir(root)).map(async (mod) => {
+      try {
+        const { button } = JSON.parse(await readFile(`${root}/${mod}/mod.json`, "utf8"));
+        return button?.label ? { ...button, mod } : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return found.filter(Boolean).sort((a, b) => a.label.localeCompare(b.label));
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -33,31 +48,63 @@ export default class Tabs extends View {
   init(_props, cx) {
     this.pressed = null;
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
-    // The button waits for the file: an svg() drawn before its file exists stays blank.
+    this.declared = [];
     cx.spawn(async (cx) => {
-      await mkdir(`${appHome()}/data/workspace-tabs`, { recursive: true });
-      await writeFile(`${appHome()}/${INBOX_ICON}`, INBOX_SVG);
-      this.inboxReady = true;
-      cx.notify();
+      const mods = `${appHome()}/mods`;
+      for (;;) {
+        this.declared = await declaredButtons();
+        cx.notify();
+        let changed;
+        do changed = await watchFolder(mods);
+        while (!changed.some((path) => path === mods || path.endsWith("/mod.json")));
+      }
     });
+    // `<this mod>.<declaring mod>` in keys.json presses that mod's button.
     cx.spawn(async (cx) => {
       for (;;) {
-        if ((await nextCommand()) === "open-github") this.openGithub();
+        const command = await nextCommand();
+        const button = this.buttons().find((b) => b.mod === command);
+        if (button) this.press(button);
         cx.notify();
       }
     });
   }
 
-  githubTab(space) {
-    return panes().find((p) => p.mod === "github" && space?.tabs.some((c) => c.id === p.tab))?.tab;
+  // props.buttons on the layout block picks and orders the declared buttons; without it, all.
+  buttons() {
+    const wanted = props()?.buttons;
+    if (!Array.isArray(wanted)) return this.declared;
+    return wanted.map((mod) => this.declared.find((b) => b.mod === mod)).filter(Boolean);
   }
 
-  openGithub() {
+  // A button whose mod has a block in the panel stack toggles the panel; any other goes to
+  // the space's tab showing that mod, or opens one.
+  press(button) {
+    const root = layout(),
+      panel = find(root, "panel"),
+      body = find(root, "panel-body");
+    if (body?.children?.some((c) => c.id === button.mod)) {
+      if (panel && !panel.hidden && body.active === button.mod) run("layout.hide", { id: "panel" });
+      else {
+        run("layout.select", { stack: "panel-body", child: button.mod });
+        run("layout.show", { id: "panel" });
+      }
+      return;
+    }
     const space = spaces().find((p) => p.active);
     if (!space) return;
-    const tab = this.githubTab(space);
+    const tab = this.modTab(space, button.mod);
     if (tab) run("tab.select", { id: tab });
-    else run("tab.new", { name: "GitHub", mod: "github", props: { space: space.id } });
+    else
+      run("tab.new", {
+        name: button.label,
+        mod: button.mod,
+        ...(button.per_space ? { props: { space: space.id } } : {}),
+      });
+  }
+
+  modTab(space, mod) {
+    return panes().find((p) => p.mod === mod && space?.tabs.some((c) => c.id === p.tab))?.tab;
   }
 
   // The side panel is remembered per space: switching shows that space's choice
@@ -96,6 +143,7 @@ export default class Tabs extends View {
     const t = theme();
     const space = spaces().find((p) => p.active);
     const shown = space?.tabs ?? [];
+    const titles = shared("tab.titles") ?? {};
     const stop = (_e, cx) => cx.stop_propagation();
     const button = (id, label, action) =>
       div()
@@ -112,20 +160,13 @@ export default class Tabs extends View {
         .on_click(action)
         .child(label);
     const item = (c, i) => {
-      const pane =
+      const program = (
         panes().find((p) => p.tab === c.id && p.program?.agent) ??
-        panes().find((p) => p.tab === c.id);
-      const program = pane?.program;
-      // An unnamed tab takes the agent's own title (Claude Code sets one per session), unless it's a path, user@host or the program name.
-      const live = (pane?.title ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
-      const telling =
-        live &&
-        live !== program?.name &&
-        live.toLowerCase() !== program?.key &&
-        !/^[~/]|^[A-Za-z]:\\/.test(live) &&
-        !live.includes("@");
+        panes().find((p) => p.tab === c.id)
+      )?.program;
       const auto = !c.named || c.name === program?.name;
-      const name = !auto ? c.name : telling ? live : (program?.name ?? "Terminal");
+      // tab-title publishes an unnamed tab's agent title (Claude Code sets one per session).
+      const name = !auto ? c.name : (titles[c.id] ?? program?.name ?? "Terminal");
       return h_flex()
         .id(`tab-${c.id}`)
         .h(29)
@@ -217,7 +258,11 @@ export default class Tabs extends View {
         : 10;
     const panel = find(root, "panel"),
       body = find(root, "panel-body");
-    const enabled = [...(shared("workspace.panels") ?? ["files", "changes"]), "github-inbox"];
+    const buttons = this.buttons();
+    const enabled = [
+      ...(shared("workspace.panels") ?? ["files", "changes"]),
+      ...buttons.filter((b) => body?.children?.some((c) => c.id === b.mod)).map((b) => b.mod),
+    ];
     this.syncPanel(space, panel, body, enabled);
     const barButton = (id, label, icon, on, action) =>
       h_flex()
@@ -284,14 +329,18 @@ export default class Tabs extends View {
       .when(enabled.includes("changes"), (el) =>
         el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")),
       )
-      .child(panelButton("github-inbox", "Inbox", this.inboxReady ? INBOX_ICON : null))
-      .child(
-        barButton(
-          "github-page",
-          "GitHub",
-          "icons/gh.svg",
-          shown.find((c) => c.active)?.id === this.githubTab(space),
-          () => this.openGithub(),
+      .children(
+        buttons.map((b) =>
+          barButton(
+            `button-${b.mod}`,
+            b.label,
+            b.icon ?? null,
+            body?.children?.some((c) => c.id === b.mod)
+              ? panel && !panel.hidden && body.active === b.mod
+              : Boolean(this.modTab(space, b.mod)) &&
+                  shown.find((c) => c.active)?.id === this.modTab(space, b.mod),
+            () => this.press(b),
+          ),
         ),
       )
       .when(w?.buttons, (el) =>

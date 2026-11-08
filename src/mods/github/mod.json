@@ -1,1 +1,5 @@
-{ "place": "none", "title": "GitHub" }
+{
+  "place": "none",
+  "title": "GitHub",
+  "button": { "label": "GitHub", "icon": "icons/gh.svg", "per_space": true }
+}

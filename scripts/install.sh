@@ -17,8 +17,8 @@ done
 for file in src/layouts/*.json; do place "$file" "$app/layouts"; done
 place bin/mermaid-svg "$HOME/.local/bin"
 
-# keys.json is Herdr's own file, written on first start, so each app's keys and the GitHub key
-# are upserted into it.
+# keys.json is Herdr's own file, written on first start, so each app's keys and this setup's
+# own keys are upserted into it.
 keys="$app/keys.json"
 if [ -f "$keys" ]; then
   node -e '
@@ -27,7 +27,13 @@ if [ -f "$keys" ]; then
     const keys = JSON.parse(fs.readFileSync(path, "utf8"));
     const wanted = [
       ...appKeys.map((file) => JSON.parse(fs.readFileSync(file, "utf8"))),
-      { global: { "ctrl-shift-g": "workspace-tabs.open-github" } },
+      // After the apps: these keys press workspace-tabs buttons, which go back to an open tab.
+      {
+        global: {
+          "ctrl-shift-g": "workspace-tabs.github",
+          "ctrl-shift-i": "workspace-tabs.github-inbox",
+        },
+      },
     ];
     let changed = false;
     for (const sections of wanted)

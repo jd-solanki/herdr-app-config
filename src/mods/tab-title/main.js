@@ -1,5 +1,5 @@
 import { View, div } from "gpui-kit";
-import { exec, notify, panes, run, spaces } from "herdr";
+import { exec, notify, panes, run, setShared, shared, spaces } from "herdr";
 
 const ISSUE_NAME = /^#(\d+)$/;
 
@@ -23,6 +23,30 @@ const nameOf = (tabId) =>
     .flatMap((space) => space.tabs)
     .find((tab) => tab.id === tabId)?.name;
 
+// An unnamed tab's agent title (Claude Code sets one per session), unless it's a path,
+// user@host or the program name. Published, never renamed in: a rename marks the tab named
+// and outlives the agent.
+function agentTitles() {
+  /** @type {Record<string, string>} */
+  const titles = {};
+  for (const tab of spaces().flatMap((space) => space.tabs)) {
+    const pane =
+      panes().find((p) => p.tab === tab.id && p.program?.agent) ??
+      panes().find((p) => p.tab === tab.id);
+    const program = pane?.program;
+    if (tab.named && tab.name !== program?.name) continue;
+    const live = (pane?.title ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
+    const telling =
+      live &&
+      live !== program?.name &&
+      live.toLowerCase() !== program?.key &&
+      !/^[~/]|^[A-Za-z]:\\/.test(live) &&
+      !live.includes("@");
+    if (telling) titles[tab.id] = live;
+  }
+  return titles;
+}
+
 // The app has no tab events: render runs whenever spaces change, so it looks for tabs named #<number>.
 export default class TabTitle extends View {
   init() {
@@ -31,6 +55,9 @@ export default class TabTitle extends View {
   }
 
   render(cx) {
+    const titles = agentTitles();
+    if (JSON.stringify(titles) !== JSON.stringify(shared("tab.titles") ?? {}))
+      setShared("tab.titles", titles);
     const now = spaces().flatMap((space) => space.tabs.map((tab) => ({ space, tab })));
     // Forget names a tab no longer has, so naming it #123 again retries.
     this.tried = new Set(

@@ -62,3 +62,4 @@ governs.
 | `domains/github-inbox.md`      | changing the GitHub inbox app; with gallery-apps.md                                                                                                |
 | `domains/github.md`            | changing the GitHub tab mod or `mermaid-svg`; with build-and-install.md                                                                            |
 | `domains/tab-title.md`         | changing the tab-title mod; with build-and-install.md                                                                                              |
+| `domains/workspace-tabs.md`    | changing the tab bar, or giving a mod a tab bar button; with build-and-install.md                                                                  |

@@ -26,7 +26,7 @@ the first diagram needs network, because `bun` downloads Pele then.
 - Click a row's labels to pick them. It shows the first few labels; type to find the rest. Ticking does nothing until
   the picker closes, which saves every change in one call.
 - Images show as 🖼 links and as thumbnails under the post. Click either to see it full size; Esc closes it.
-- Click **Inbox** beside Changes for the [GitHub inbox](../../../apps/github-inbox/) as a side panel.
+- Click **Inbox** beside Changes, or press `ctrl-shift-i`, for the [GitHub inbox](../../../apps/github-inbox/) as a side panel.
 
 ## Change it
 

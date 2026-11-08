@@ -18,12 +18,12 @@ and repo name.
 
 ## Not published yet
 
-| Mod or layout                                 | What it does                                            |
-| --------------------------------------------- | ------------------------------------------------------- |
-| [`github`](./src/mods/github/README.md)       | A GitHub tab per space: issues and PRs, read in the app |
-| [`tab-title`](./src/mods/tab-title/README.md) | A tab named `#123` takes that issue's or PR's title     |
-| `workspace-tabs`                              | Herdr's `tabs` mod plus the GitHub and Inbox buttons    |
-| `src/layouts/workspace.json`                  | Herdr's `main` layout wired to all of the above         |
+| Mod or layout                                 | What it does                                                                                |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`github`](./src/mods/github/README.md)       | A GitHub tab per space: issues and PRs, read in the app                                     |
+| [`tab-title`](./src/mods/tab-title/README.md) | A tab named `#123` takes that issue's or PR's title; an unnamed tab shows its agent's title |
+| `workspace-tabs`                              | Herdr's `tabs` mod, plus the buttons mods declare in their `mod.json`                       |
+| `src/layouts/workspace.json`                  | Herdr's `main` layout wired to all of the above                                             |
 
 ## Setup
 
@@ -37,7 +37,7 @@ pnpm run setup
 ```
 
 `setup` builds the `src/` mods into `dist/` and runs `scripts/install.sh`, which copies every
-mod, the layouts and `bin/mermaid-svg` into place and binds `ctrl-shift-g` to the GitHub tab.
+mod, the layouts and `bin/mermaid-svg` into place and binds `ctrl-shift-g` to the GitHub tab and `ctrl-shift-i` to the inbox.
 Open the Herdr app once before it, so `keys.json` exists. Then press `ctrl-shift-l`
 (`cmd-shift-l` on the Mac) until the `workspace` layout shows.
 

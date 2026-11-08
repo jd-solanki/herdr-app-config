@@ -1,1 +1,5 @@
-{ "place": "none", "title": "GitHub inbox" }
+{
+  "place": "none",
+  "title": "GitHub inbox",
+  "button": { "label": "Inbox", "icon": "mods/github-inbox/inbox.svg" }
+}

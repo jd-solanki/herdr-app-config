@@ -18,3 +18,6 @@ It draws nothing, and runs only while the `workspace` layout's 0px `tab-title` b
 - `gh` reads the repo from the tab's focused terminal's folder, so open the tab in the
   clone first.
 - A failed lookup shows a toast. Rename the tab away and back to retry.
+- An unnamed tab shows its agent's own title (Claude Code sets one per session) in
+  `workspace-tabs`, unless the title is a path, `user@host` or the program name. The tab stays
+  unnamed, so the title follows the agent.

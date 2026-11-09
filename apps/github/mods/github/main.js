@@ -27,6 +27,9 @@ const ASSIGNEES_WIDTH = 150;
 // Narrower than this, as in a side panel, the fixed columns leave the title no room.
 const NARROW_WIDTH = ID_WIDTH + LABELS_WIDTH + ASSIGNEES_WIDTH + 300;
 
+// `#123` opens that issue or PR. GitHub search ignores the `#`, so `123` still searches.
+const WORK_NUMBER = /^#(\d+)$/;
+
 const PRESETS = [
   { label: "Open", query: "is:open" },
   { label: "Assigned to me", query: "is:open assignee:@me" },
@@ -89,7 +92,11 @@ export default class GitHub extends View {
       needLabels: (cx) => {
         if (!this.repoLabels()) this.loadRepoLabels(cx);
       },
-      submit: (query, cx) => this.setQuery(query, cx),
+      submit: (query, cx) => {
+        const number = WORK_NUMBER.exec(query.trim())?.[1];
+        if (number) this.openNumber(Number(number), cx);
+        else this.setQuery(query, cx);
+      },
     });
     cx.timer.every(REFRESH_MS, (cx) => this.refresh(cx));
   }
@@ -188,6 +195,32 @@ export default class GitHub extends View {
     this.openWork = number;
     this.refresh(cx);
     cx.notify();
+  }
+
+  // Its kind is unknown until GitHub answers: a PR is an issue with a pull_request field.
+  openNumber(number, cx) {
+    const { place } = this;
+    if (!place) return;
+    cx.spawn(async (cx) => {
+      try {
+        const isPull = await gh(
+          ["api", `repos/{owner}/{repo}/issues/${number}`, "--jq", ".pull_request != null"],
+          place,
+        );
+        if (place !== this.place) return;
+        this.kind = isPull.trim() === "true" ? "pulls" : "issues";
+        this.rememberView();
+        // Back returns to the list's query, not to the number.
+        this.search.set(this.query);
+        this.showWork(number, cx);
+      } catch (error) {
+        notify({
+          title: `Could not open #${number}`,
+          body: error.message,
+          level: "error",
+        });
+      }
+    });
   }
 
   openLabelPicker(work, cx) {

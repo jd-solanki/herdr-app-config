@@ -58,6 +58,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 - **Its space.** With `props.space` it shows that space. Without, it shows the active space, checked on every render, so in a side panel it follows space switches like Files and Changes. Switching to another space closes the open page and shows Loading until that space's repo is known.
 - **Its repo.** The space's repo is its first terminal's: the folder of the first pane in one of the space's tabs that has a folder, else the space's `folder`, on the space's machine. That folder's git top level is used. It is checked again on every render, so a terminal moving to another repo moves the tab. Moving within the repo changes nothing. A new repo closes the open detail page and the label picker.
 - **Kinds and queries.** "Issues" and "PRs" switch the kind. A preset chip sets the search box and runs its query. Enter in the search box runs the typed query when no suggestion is showing. The query is gh's `--search`, with `--state all`, so the query decides the state: `is:closed` works.
+- **Open by number.** Enter on exactly `#` and a number, like `#123`, opens that issue or PR's page instead of searching, switching the kind to match. The box goes back to the list's query, so "← Back" returns to the list. A number not in the repo shows the toast "Could not open #123" with gh's message. GitHub search ignores `#`, so a plain `123` still searches.
 - **Remembered.** The kind and query, in the shared key `github.lastView` (`{ kind, query }`), written whenever either changes. A new GitHub tab, in any space, opens on them. A fresh install opens on Issues with `is:open`.
 - **Autocomplete, as on GitHub.** Only the last word is completed, once it has a `:`. It offers the qualifiers that start with it, and a leading `-` negates any:
   - **Issues:** `is:open`, `is:closed`, `label:`, `no:label`, `no:assignee`, `assignee:@me`, `author:@me`, `involves:@me`, `mentions:@me`, `sort:updated-desc`, `sort:created-desc`, `sort:comments-desc`.
@@ -104,6 +105,7 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
   - `gh issue edit <n>` or `gh pr edit <n>`, with `--add-label <csv>` and/or `--remove-label <csv>`. Each name in the CSV is a quoted field, with `"` doubled: `"bug","needs review"`.
   - `git config user.name`, for GitHub images.
 - **More programs**, run on this computer:
+  - `gh api repos/{owner}/{repo}/issues/<n> --jq '.pull_request != null'` for `#123`, in the repo's folder: `true` is a PR. GitHub serves PRs as issues too.
   - `gh browse --repo <owner/repo> <n>` for "↗", with the repo taken from the issue or pull request's URL. A failure shows the toast "Could not open #123".
   - `bun <appHome>/mods/github/mermaid-svg <source> <palette json> <appHome>/data/github/mermaid`. The palette maps Pele's variables to the theme:
 
@@ -162,3 +164,4 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 - `cd` into another repo in the space's terminal, and the tab lists that repo's issues.
 - With tab-bar, the GitHub button opens the shown space's GitHub tab, or goes back to it.
 - With a `github` block in the side panel, the button toggles the panel, and switching spaces lists the new space's repo.
+- Typing `#` and a PR's number in the search box, then Enter, opens that PR's page, with PRs picked. "← Back" returns to the list.

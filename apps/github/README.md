@@ -36,6 +36,8 @@ follows that repo. The first diagram needs network, because `bun` downloads Pele
   back to it.
 - Close it like any other tab.
 - The chips set the search box. Type any GitHub search query there and press Enter.
+- Type `#123` and press Enter to open issue or PR 123 straight away, as named by an agent. A plain
+  `123` searches for it instead.
 - A new tab opens on the kind and query used last, in any space.
 - Typing a word with a `:` (`is:`, `no:`) suggests its values, and label names after `label:`. Enter or Tab
   takes the highlighted one; with no suggestion showing, Enter searches.

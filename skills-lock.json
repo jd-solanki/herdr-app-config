@@ -73,6 +73,12 @@
       "skillPath": "skills/engineering/create-ticket/SKILL.md",
       "computedHash": "c65ab6feb8dab4d04ec025025448d978a77c21b68ba8fac494b21a8ec62684b2"
     },
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "computedHash": "ede7254edbd22fcab97a0941511f7d440d8f9a249348fea97c50987ad5501674"
+    },
     "domain-modeling": {
       "source": "jd-solanki/ai",
       "sourceType": "github",

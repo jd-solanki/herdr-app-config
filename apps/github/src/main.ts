@@ -71,6 +71,8 @@ const ID_WIDTH = 84;
 const LABELS_WIDTH = 220;
 const LABEL_MATCHES_SHOWN = 10;
 const ASSIGNEES_WIDTH = 150;
+// Narrower than this, as in a side panel, the fixed columns leave the title no room.
+const NARROW_WIDTH = ID_WIDTH + LABELS_WIDTH + ASSIGNEES_WIDTH + 300;
 
 const PRESETS = [
   { label: "Open", query: "is:open" },
@@ -112,7 +114,6 @@ const LINKED_IMAGE = /\[\s*!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)\s*\]\(\s*<?([
 const AUTHED_CURL = `gh auth token \${3:+-u "$3"} | sed 's/^/Authorization: token /' | curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M --max-time 25 -H @- -w '%{content_type}' -o "$2" -- "$1"`;
 
 export default class GitHub extends View {
-  declare spaceId: string;
   declare kind: Kind;
   declare query: string;
   declare openWork: number | null;
@@ -127,11 +128,10 @@ export default class GitHub extends View {
   declare search: SearchBox;
   declare folder: Place | null;
   declare place: Place | null;
+  declare spaceId: string | undefined;
+  declare narrow: boolean;
 
   init(_props: unknown, cx: AsyncContext) {
-    // A mod pane can't see its own tab, so without props.space it takes the space shown when it
-    // starts: a key or tab.new opens it in the active space.
-    this.spaceId = props()?.space ?? spaces().find((space) => space.active)?.id;
     const lastView = shared(LAST_VIEW_KEY) as { kind?: Kind; query?: unknown } | null;
     this.kind = KINDS[lastView?.kind] ? lastView.kind : "issues";
     this.query = typeof lastView?.query === "string" ? lastView.query : PRESETS[0].query;
@@ -328,9 +328,21 @@ export default class GitHub extends View {
   }
 
   followSpace(cx: Context) {
-    const space = spaces().find(({ id }) => id === this.spaceId);
+    // A mod pane can't see its own tab, so without props.space it shows the active space: in a
+    // tab that is the tab's space, in the side panel it follows space switches like Files.
+    const id = props()?.space;
+    const space = spaces().find((space) => (id ? space.id === id : space.active));
     const folder = space ? terminalFolder(space) : null;
+    // Recorded before the early return, so a later cd in a space reached at the same folder isn't a switch.
+    const switched = space?.id !== this.spaceId;
+    this.spaceId = space?.id;
     if (JSON.stringify(folder) === JSON.stringify(this.folder)) return;
+    // Another space's repo is unknown until repoRoot answers: show Loading, not the last space's list.
+    if (switched) {
+      this.place = null;
+      this.openWork = null;
+      this.labelDrafts.clear();
+    }
     this.folder = folder;
     cx.spawn(async (cx) => {
       // Always yields: a null folder would otherwise reach cx.notify() inside render, which rejects.
@@ -359,6 +371,12 @@ export default class GitHub extends View {
     return div()
       .size_full()
       .min_w(0)
+      .on_size_change(({ width }, cx) => {
+        const narrow = width < NARROW_WIDTH;
+        if (narrow === this.narrow) return;
+        this.narrow = narrow;
+        cx.notify();
+      })
       .bg(colors.background)
       .text_size(13)
       .text_color(colors.foreground)
@@ -418,7 +436,8 @@ export default class GitHub extends View {
     for (const number of this.labelDrafts.keys())
       if (!list.value.some((work) => work.number === number)) this.labelDrafts.delete(number);
     const labelsCell = (work: ListedWork) => this.labelsCell(work, colors);
-    return workTable(list.value, ({ number }, cx) => this.showWork(number, cx), labelsCell, colors);
+    const onOpen = ({ number }: ListedWork, cx: Context) => this.showWork(number, cx);
+    return workTable(list.value, onOpen, labelsCell, this.narrow, colors);
   }
 
   labelsCell(work: Work, colors: Colors) {
@@ -426,7 +445,7 @@ export default class GitHub extends View {
     const chips = div()
       .id(`labels-${work.number}`)
       .w_full()
-      .h(48)
+      .when(!this.narrow, (box) => box.h(48))
       .flex()
       .flex_wrap()
       .items_center()
@@ -446,7 +465,7 @@ export default class GitHub extends View {
       // Only the open one: content rebuilds with its trigger, and every row has one.
       .when(isOpen, (popover) => popover.content(this.labelPicker(work, colors)));
     // Outside the popover, so it still sees the press; the row must not also open.
-    return column(LABELS_WIDTH)
+    return (this.narrow ? div().w_full() : column(LABELS_WIDTH))
       .id(`labels-cell-${work.number}`)
       .on_click((_e, cx) => cx.stop_propagation())
       .child(picker);
@@ -718,6 +737,7 @@ function workTable(
   works: ListedWork[],
   onOpen: (work: ListedWork, cx: Context) => void,
   labelsCell: (work: ListedWork) => Element,
+  narrow: boolean,
   colors: Colors,
 ) {
   return v_flex()
@@ -726,18 +746,18 @@ function workTable(
     .rounded(8)
     .border(1)
     .border_color(colors.border)
-    .child(tableHeading(colors))
+    .child(tableHeading(narrow, colors))
     .child(
       v_flex()
         .id("work-rows")
         .flex_1()
         .min_h(0)
         .overflow_y_scrollbar()
-        .children(works.map((work) => tableRow(work, onOpen, labelsCell, colors))),
+        .children(works.map((work) => tableRow(work, onOpen, labelsCell, narrow, colors))),
     );
 }
 
-function tableHeading(colors: Colors) {
+function tableHeading(narrow: boolean, colors: Colors) {
   return h_flex()
     .h(34)
     .flex_none()
@@ -748,9 +768,16 @@ function tableHeading(colors: Colors) {
     .border_b(1)
     .border_color(colors.border)
     .child(column(ID_WIDTH).child(caption("ID", colors)))
-    .child(div().flex_1().child(caption("TITLE / CONTEXT", colors)))
-    .child(column(LABELS_WIDTH).child(caption("LABELS", colors)))
-    .child(column(ASSIGNEES_WIDTH).child(caption("ASSIGNEES", colors)));
+    .child(
+      div()
+        .flex_1()
+        .child(caption(narrow ? "TITLE / LABELS" : "TITLE / CONTEXT", colors)),
+    )
+    .when(!narrow, (heading) =>
+      heading
+        .child(column(LABELS_WIDTH).child(caption("LABELS", colors)))
+        .child(column(ASSIGNEES_WIDTH).child(caption("ASSIGNEES", colors))),
+    );
 }
 
 function column(width: number) {
@@ -765,8 +792,24 @@ function tableRow(
   work: ListedWork,
   onOpen: (work: ListedWork, cx: Context) => void,
   labelsCell: (work: ListedWork) => Element,
+  narrow: boolean,
   colors: Colors,
 ) {
+  const title = div().truncate().font_semibold().child(work.title);
+  if (narrow)
+    return h_flex()
+      .id(`work-${work.number}`)
+      .flex_none()
+      .px(14)
+      .py(10)
+      .gap(12)
+      .items_start()
+      .border_b(1)
+      .border_color(colors.border)
+      .hover((style) => style.bg(colors.hover))
+      .on_click((_e, cx) => onOpen(work, cx))
+      .child(idCell(work, colors))
+      .child(v_flex().flex_1().min_w(0).gap(6).child(title).child(labelsCell(work)));
   const assignees = work.assignees.map(({ login }) => login).join(", ");
   return h_flex()
     .id(`work-${work.number}`)
@@ -779,23 +822,8 @@ function tableRow(
     .border_color(colors.border)
     .hover((style) => style.bg(colors.hover))
     .on_click((_e, cx) => onOpen(work, cx))
-    .child(
-      column(ID_WIDTH)
-        .flex()
-        .items_center()
-        .gap(8)
-        .text_color(colors.dim)
-        .child(statusIcon(work, colors))
-        .child(`#${work.number}`),
-    )
-    .child(
-      v_flex()
-        .flex_1()
-        .min_w(0)
-        .gap(4)
-        .child(div().truncate().font_semibold().child(work.title))
-        .child(context(work, colors)),
-    )
+    .child(idCell(work, colors))
+    .child(v_flex().flex_1().min_w(0).gap(4).child(title).child(context(work, colors)))
     .child(labelsCell(work))
     .child(
       column(ASSIGNEES_WIDTH)
@@ -803,6 +831,16 @@ function tableRow(
         .text_color(assignees ? colors.foreground : colors.dim)
         .child(assignees || "-"),
     );
+}
+
+function idCell(work: Work, colors: Colors) {
+  return column(ID_WIDTH)
+    .flex()
+    .items_center()
+    .gap(8)
+    .text_color(colors.dim)
+    .child(statusIcon(work, colors))
+    .child(`#${work.number}`);
 }
 
 function context(work: Work, colors: Colors) {

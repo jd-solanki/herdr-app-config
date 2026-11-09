@@ -23,6 +23,10 @@ Read ~/.config/herdr-app/AGENTS.md, then add this mod: herdr.dev/mods/jd-solanki
 `ctrl-shift-g` opens it as a tab in the shown space. With [tab-bar](../tab-bar/) it also gets a
 **GitHub** button that goes back to the space's tab.
 
+This repo's [`workspace` layout](../../src/layouts/) puts it in the right side panel instead of
+a tab. **GitHub** switches the panel to it, like Files and Changes, and it lists the shown
+space's repo as you switch spaces.
+
 ## Use
 
 It needs `gh`, logged in, and `bun` for diagrams. `gh` runs in the space's repo, so the account

@@ -2,7 +2,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { ACROSS_REPOS_QUALIFIERS, SearchBox, queryWords } from "./github-search/index.js";
+import { ACROSS_REPOS_QUALIFIERS, SearchBox } from "./github-search/index.js";
 import { exec, theme as herdrTheme } from "herdr";
 
 // herdr.d.ts types the theme as plain strings; its values are #rrggbb colors.
@@ -12,8 +12,14 @@ const DEFAULT_QUERY = "state:open assignee:@me";
 // A query the person submits outlives restarts; DEFAULT_QUERY only seeds a fresh install.
 const QUERY_KEY = "query";
 const REFRESH_MS = 60_000;
-const FIELDS =
-  "repository,number,title,author,createdAt,updatedAt,commentsCount,labels,isPullRequest,url";
+// gh search issues has no isDraft, so the inbox reads the REST search gh calls and reshapes it to Work.
+const TO_WORK = `.items | map({
+  repository: { nameWithOwner: (.repository_url | sub(".*/repos/"; "")) },
+  number, title, author: { login: .user.login }, createdAt: .created_at, updatedAt: .updated_at,
+  commentsCount: .comments, labels: [.labels[] | { name, color }],
+  isPullRequest: (.pull_request != null), isDraft: (.draft == true), url: .html_url,
+  state: (if .pull_request.merged_at then "MERGED" else (.state | ascii_upcase) end)
+})`;
 // The path names the mod's folder: renaming the mod changes it too.
 const ICONS = "mods/github-inbox";
 
@@ -142,16 +148,20 @@ export default class GithubInbox extends View {
 
 async function searchWork(query) {
   const args = [
-    "search",
-    "issues",
-    ...queryWords(query),
-    "--include-prs",
-    "--sort",
-    "updated",
-    "--limit",
-    "100",
-    "--json",
-    FIELDS,
+    "api",
+    "-X",
+    "GET",
+    "search/issues",
+    "-f",
+    "advanced_search=true",
+    "-f",
+    `q=${query}`,
+    "-f",
+    "sort=updated",
+    "-f",
+    "per_page=100",
+    "--jq",
+    TO_WORK,
   ];
   // No cwd: the gh wrapper then takes the global account, the one that sees every repo.
   const result = await exec("gh", args);
@@ -159,12 +169,17 @@ async function searchWork(query) {
   return JSON.parse(result.stdout);
 }
 
+// The icon file and theme color, as the github app's statusOf picks them.
+function statusIcon({ state, isDraft, isPullRequest }) {
+  if (state === "MERGED") return ["pr-merged", "ansi5"];
+  if (state === "CLOSED") return isPullRequest ? ["pr-closed", "ansi1"] : ["issue-closed", "ansi5"];
+  if (isDraft) return ["pr-draft", "dim"];
+  return [isPullRequest ? "pr" : "issue", "ansi2"];
+}
+
 function row(work, colors) {
-  const icon = svg(`${ICONS}/${work.isPullRequest ? "pr" : "issue"}.svg`)
-    .size(16)
-    .flex_none()
-    .mt(2)
-    .text_color(colors.ansi2);
+  const [name, color] = statusIcon(work);
+  const icon = svg(`${ICONS}/${name}.svg`).size(16).flex_none().mt(2).text_color(colors[color]);
   const meta = `${work.repository.nameWithOwner}#${work.number} · ${work.author.login} opened ${ago(work.createdAt)} · Updated ${ago(work.updatedAt)}`;
   return (
     h_flex()

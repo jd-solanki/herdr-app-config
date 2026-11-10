@@ -29,6 +29,7 @@ import {
 
 type Colors = Record<string, Color>;
 type PersonOf = (login: string) => Element;
+type Job = { cache: Cache<unknown>; key: string; make: () => Promise<unknown> };
 type Kind = keyof typeof KINDS;
 type Place = { cwd: string; on: string | null };
 type Login = { login: string };
@@ -131,7 +132,10 @@ export default class GitHub extends View {
   declare detailsByKey: Cache<WorkDetail>;
   declare diagramsByKey: Cache<Diagram>;
   declare imagesByUrl: Cache<string>;
-  declare queue: { cache: Cache<unknown>; key: string; make: () => Promise<unknown> }[];
+  declare avatarsByLogin: Cache<string>;
+  declare queue: Job[];
+  // Its own queue, so a list's avatars never hold up a post's images.
+  declare avatarQueue: Job[];
   declare repoLabelsByKey: Cache<Label[]>;
   declare labelDrafts: Map<number, LabelDraft>;
   declare labelSearch: InputState;
@@ -150,7 +154,9 @@ export default class GitHub extends View {
     this.detailsByKey = {};
     this.diagramsByKey = {};
     this.imagesByUrl = {};
+    this.avatarsByLogin = {};
     this.queue = [];
+    this.avatarQueue = [];
     this.repoLabelsByKey = {};
     // The open label pickers' choices, by work number: closing one picker and opening the next can report in either order.
     this.labelDrafts = new Map<number, LabelDraft>();
@@ -203,10 +209,11 @@ export default class GitHub extends View {
 
   // Flagged, not deleted: a broken diagram or image keeps its error on screen while it retries. A queued one is already retrying.
   flagFailures() {
-    if (this.queue.length) return;
+    if (this.queue.length || this.avatarQueue.length) return;
     for (const entry of [
       ...Object.values(this.diagramsByKey),
       ...Object.values(this.imagesByUrl),
+      ...Object.values(this.avatarsByLogin),
     ]) {
       if (entry.error) entry.retry = true;
     }
@@ -229,12 +236,12 @@ export default class GitHub extends View {
   }
 
   // Fetched text sets the job count, and cx.spawn throws at 1024 outstanding host tasks.
-  drainQueue(cx: Context) {
+  drainQueue(queue: Job[], cx: Context) {
     cx.spawn(async (cx) => {
-      while (this.queue.length) {
-        const { cache, key, make } = this.queue[0];
+      while (queue.length) {
+        const { cache, key, make } = queue[0];
         await this.settle(cache, key, make);
-        this.queue.shift();
+        queue.shift();
         cx.notify();
       }
     });
@@ -333,18 +340,19 @@ export default class GitHub extends View {
     });
   }
 
-  queued<T>(cache: Cache<T>, key: string, make: () => Promise<T>, cx: Context) {
+  queued<T>(queue: Job[], cache: Cache<T>, key: string, make: () => Promise<T>, cx: Context) {
     const known = cache[key];
     if (!known || known.retry) {
       cache[key] = { error: known?.error };
-      this.queue.push({ cache, key, make });
-      if (this.queue.length === 1) this.drainQueue(cx);
+      queue.push({ cache, key, make });
+      if (queue.length === 1) this.drainQueue(queue, cx);
     }
     return cache[key];
   }
 
   diagram(source: string, palette: string, cx: Context) {
     return this.queued(
+      this.queue,
       this.diagramsByKey,
       JSON.stringify([source, palette]),
       () => renderMermaid(source, palette),
@@ -354,24 +362,15 @@ export default class GitHub extends View {
 
   picture(url: string, cx: Context) {
     const { place } = this;
-    return this.queued(this.imagesByUrl, url, () => downloadImage(url, place), cx);
+    return this.queued(this.queue, this.imagesByUrl, url, () => downloadImage(url, place), cx);
   }
 
   person(login: string, colors: Colors, cx: Context) {
-    const [, app, name] = login.match(LOGIN) ?? [];
     const { place } = this;
-    const download = (url: string) => downloadImage(url, place);
-    let picture: string | undefined;
-    // Keyed by login, not URL: a bot's URL needs its app id first.
-    if (app)
-      picture = this.queued(
-        this.imagesByUrl,
-        login,
-        () => appAvatar(name, place).then(download),
-        cx,
-      ).value;
-    else if (name)
-      picture = this.picture(`https://github.com/${name}.png?size=${AVATAR_PX}`, cx).value;
+    const make = () => downloadAvatar(login, place);
+    const picture = LOGIN.test(login)
+      ? this.queued(this.avatarQueue, this.avatarsByLogin, login, make, cx).value
+      : null;
     const avatar = picture
       ? image(`${IMAGE_FOLDER}/${picture}`)
       : div().bg(colors.raised).border(1).border_color(colors.border);
@@ -649,10 +648,13 @@ async function stdoutOf(command: string, args: string[], options?: Place) {
 
 const gh = (args: string[], place?: Place) => stdoutOf("gh", args, place);
 
-// github.com/apps/<slug>.png refuses to serve, so a bot's avatar is found by its app id.
-async function appAvatar(slug: string, place: Place) {
-  const id = (await gh(["api", `apps/${slug}`, "--jq", ".id"], place)).trim();
-  return `https://avatars.githubusercontent.com/in/${id}?s=${AVATAR_PX}`;
+async function downloadAvatar(login: string, place: Place) {
+  const [, app, name] = login.match(LOGIN);
+  if (!app) return downloadImage(`https://github.com/${name}.png?size=${AVATAR_PX}`, place);
+  // github.com/apps/<slug>.png refuses to serve, so a bot's avatar is found by its app id.
+  const id = (await gh(["api", `apps/${name}`, "--jq", ".id"], place)).trim();
+  if (!/^\d+$/.test(id)) throw new Error(`No app id for ${login}`);
+  return downloadImage(`https://avatars.githubusercontent.com/in/${id}?s=${AVATAR_PX}`, place);
 }
 
 // `--state all`: the search query owns the state, so `is:closed` works.

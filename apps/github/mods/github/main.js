@@ -75,6 +75,8 @@ const LINKED_IMAGE = /\[\s*!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)\s*\]\(\s*<?([
 const AUTHED_CURL = `gh auth token \${3:+-u "$3"} | sed 's/^/Authorization: token /' | curl -fsSLg --proto =https --proto-redir =https --max-filesize 20M --max-time 25 -H @- -w '%{content_type}' -o "$2" -- "$1"`;
 
 export default class GitHub extends View {
+  // Its own queue, so a list's avatars never hold up a post's images.
+
   init(_props, cx) {
     const lastView = shared(LAST_VIEW_KEY);
     this.kind = KINDS[lastView?.kind] ? lastView.kind : "issues";
@@ -84,7 +86,9 @@ export default class GitHub extends View {
     this.detailsByKey = {};
     this.diagramsByKey = {};
     this.imagesByUrl = {};
+    this.avatarsByLogin = {};
     this.queue = [];
+    this.avatarQueue = [];
     this.repoLabelsByKey = {};
     // The open label pickers' choices, by work number: closing one picker and opening the next can report in either order.
     this.labelDrafts = new Map();
@@ -137,10 +141,11 @@ export default class GitHub extends View {
 
   // Flagged, not deleted: a broken diagram or image keeps its error on screen while it retries. A queued one is already retrying.
   flagFailures() {
-    if (this.queue.length) return;
+    if (this.queue.length || this.avatarQueue.length) return;
     for (const entry of [
       ...Object.values(this.diagramsByKey),
       ...Object.values(this.imagesByUrl),
+      ...Object.values(this.avatarsByLogin),
     ]) {
       if (entry.error) entry.retry = true;
     }
@@ -163,12 +168,12 @@ export default class GitHub extends View {
   }
 
   // Fetched text sets the job count, and cx.spawn throws at 1024 outstanding host tasks.
-  drainQueue(cx) {
+  drainQueue(queue, cx) {
     cx.spawn(async (cx) => {
-      while (this.queue.length) {
-        const { cache, key, make } = this.queue[0];
+      while (queue.length) {
+        const { cache, key, make } = queue[0];
         await this.settle(cache, key, make);
-        this.queue.shift();
+        queue.shift();
         cx.notify();
       }
     });
@@ -267,18 +272,19 @@ export default class GitHub extends View {
     });
   }
 
-  queued(cache, key, make, cx) {
+  queued(queue, cache, key, make, cx) {
     const known = cache[key];
     if (!known || known.retry) {
       cache[key] = { error: known?.error };
-      this.queue.push({ cache, key, make });
-      if (this.queue.length === 1) this.drainQueue(cx);
+      queue.push({ cache, key, make });
+      if (queue.length === 1) this.drainQueue(queue, cx);
     }
     return cache[key];
   }
 
   diagram(source, palette, cx) {
     return this.queued(
+      this.queue,
       this.diagramsByKey,
       JSON.stringify([source, palette]),
       () => renderMermaid(source, palette),
@@ -288,24 +294,15 @@ export default class GitHub extends View {
 
   picture(url, cx) {
     const { place } = this;
-    return this.queued(this.imagesByUrl, url, () => downloadImage(url, place), cx);
+    return this.queued(this.queue, this.imagesByUrl, url, () => downloadImage(url, place), cx);
   }
 
   person(login, colors, cx) {
-    const [, app, name] = login.match(LOGIN) ?? [];
     const { place } = this;
-    const download = (url) => downloadImage(url, place);
-    let picture;
-    // Keyed by login, not URL: a bot's URL needs its app id first.
-    if (app)
-      picture = this.queued(
-        this.imagesByUrl,
-        login,
-        () => appAvatar(name, place).then(download),
-        cx,
-      ).value;
-    else if (name)
-      picture = this.picture(`https://github.com/${name}.png?size=${AVATAR_PX}`, cx).value;
+    const make = () => downloadAvatar(login, place);
+    const picture = LOGIN.test(login)
+      ? this.queued(this.avatarQueue, this.avatarsByLogin, login, make, cx).value
+      : null;
     const avatar = picture
       ? image(`${IMAGE_FOLDER}/${picture}`)
       : div().bg(colors.raised).border(1).border_color(colors.border);
@@ -581,10 +578,13 @@ async function stdoutOf(command, args, options) {
 
 const gh = (args, place) => stdoutOf("gh", args, place);
 
-// github.com/apps/<slug>.png refuses to serve, so a bot's avatar is found by its app id.
-async function appAvatar(slug, place) {
-  const id = (await gh(["api", `apps/${slug}`, "--jq", ".id"], place)).trim();
-  return `https://avatars.githubusercontent.com/in/${id}?s=${AVATAR_PX}`;
+async function downloadAvatar(login, place) {
+  const [, app, name] = login.match(LOGIN);
+  if (!app) return downloadImage(`https://github.com/${name}.png?size=${AVATAR_PX}`, place);
+  // github.com/apps/<slug>.png refuses to serve, so a bot's avatar is found by its app id.
+  const id = (await gh(["api", `apps/${name}`, "--jq", ".id"], place)).trim();
+  if (!/^\d+$/.test(id)) throw new Error(`No app id for ${login}`);
+  return downloadImage(`https://avatars.githubusercontent.com/in/${id}?s=${AVATAR_PX}`, place);
 }
 
 // `--state all`: the search query owns the state, so `is:closed` works.

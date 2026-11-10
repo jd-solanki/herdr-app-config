@@ -31,9 +31,10 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
     | Closed issue | `issue-closed` | `ansi5` |
     | Closed PR    | `pr-closed`    | `ansi1` |
 
-  - **Title and context**, 4px apart: the title, semibold, cut off with an ellipsis. Under it a 12px `muted` line, 10px apart: the author's login, then the repo's name without its owner.
+  - **Title and context**, 4px apart: the title, semibold, cut off with an ellipsis. Under it a 12px `muted` line, 10px apart: the author as a person, then the repo's name without its owner.
   - **Labels:** a 48px-high box, 6px radius, on `raised` under the pointer, its chips wrapping 4px apart and clipped. A label chip has 7px side padding, 9px radius, a 1px `border` line and 11px `muted` text. A row with no labels shows "-" in `dim`.
-  - **Assignees:** their logins joined by ", ", cut off with an ellipsis, in `foreground`; "-" in `dim` when there are none.
+  - **Assignees:** each as a person, 8px apart, clipped, in `foreground`; "-" in `dim` when there are none.
+- **A person** is a login with its avatar before it, 6px apart: a 16px circle of `https://github.com/<login>.png?size=48`, downloaded like a post's images. Until it arrives, and for a bot's `app/<name>` login, the circle is `raised` with a 1px `border` line.
 - **A narrow row** fits its content, with 10px top and bottom padding and its columns aligned to the top: the ID, then the title with the labels 6px under it. The labels box fills the width and grows to fit its chips. It has no context line and no assignees.
 - **The label picker**, a popover under the labels box's top-left corner: 220px wide, 4px padding, 2px gaps, 8px radius, a 1px `border` line, on `surface`, 12px text.
   - A search field, 28px high, 8px side padding, 2px below it, 5px radius, a 1px `border` line, placeholder "Search labels".
@@ -46,8 +47,8 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
   - The pill has 9px by 2px padding, 10px radius, and its line and 11px semibold text are in the state's color from the table above: "Open", "Draft", "Merged" or "Closed".
 - "Loading…" or gh's error until it loads, as on the list.
 - **The title**, 16px semibold, wrapping in full.
-- **Facts**, 12px `muted`, 10px apart and wrapping: the author, the labels as chips like the list's, 4px apart, and for a pull request "head → base", "+12 -3" and "4 files".
-- **The posts**, scrolling, 12px apart: the description first ("No description" when empty), then each comment. A post has 8px radius and a 1px `border` line. Its header has 14px by 8px padding, 12px `muted` text on `surface`, a 1px `border` line under it, and shows the author's login. The body has 14px padding and 10px between its parts:
+- **Facts**, 12px `muted`, 10px apart and wrapping: the author as a person, the labels as chips like the list's, 4px apart, and for a pull request "head → base", "+12 -3" and "4 files".
+- **The posts**, scrolling, 12px apart: the description first ("No description" when empty), then each comment. A post has 8px radius and a 1px `border` line. Its header has 14px by 8px padding, 12px `muted` text on `surface`, a 1px `border` line under it, and shows the author as a person. The body has 14px padding and 10px between its parts:
   - Text, as selectable Markdown.
   - Each Mermaid code block, drawn as a diagram at its own width and height, scrolling sideways when wider. It says "Rendering diagram…" in `muted` while drawing. If drawing fails it shows the error and the block's source as a code block.
   - Each image becomes a link, "🖼 alt" ("🖼 image" without alt text, `[` and `]` removed). An image that was itself a link (`[![alt](image)](href)`) links to `href`.

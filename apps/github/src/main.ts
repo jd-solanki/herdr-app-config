@@ -28,6 +28,7 @@ import {
 } from "herdr";
 
 type Colors = Record<string, Color>;
+type PersonOf = (login: string) => Element;
 type Kind = keyof typeof KINDS;
 type Place = { cwd: string; on: string | null };
 type Login = { login: string };
@@ -60,6 +61,7 @@ type LinkHandler = (url: string, cx: Context) => void;
 type Sources = {
   diagramOf: (source: string) => Entry<Diagram>;
   pictureOf: (url: string) => Entry<string>;
+  personOf: PersonOf;
   onLink: LinkHandler;
 };
 // Herdr's runtime has the global URL; its generated types don't declare it.
@@ -107,6 +109,9 @@ const DIAGRAM_FOLDER = "data/github/mermaid";
 // Shipped beside main.js; the path names the mod's folder, so renaming the mod changes it too.
 const MOD_FOLDER = "mods/github";
 const IMAGE_FOLDER = "data/github/images";
+// A bot's "app/name" has no avatar URL, and the strict charset keeps the login from reshaping it.
+const LOGIN = /^[\w-]+$/;
+const AVATAR_SIZE = 16;
 // TextView draws no images, so each becomes a link, and a GitHub-hosted one also a thumbnail. Groups: markdown alt, markdown URL, <img> src.
 const IMAGE = /!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)|<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
 // Only these are downloaded: any other host would learn your IP and when you read the post.
@@ -350,6 +355,21 @@ export default class GitHub extends View {
     return this.queued(this.imagesByUrl, url, () => downloadImage(url, place), cx);
   }
 
+  person(login: string, colors: Colors, cx: Context) {
+    // 3x the avatar, sharp on hi-dpi screens.
+    const url = `https://github.com/${login}.png?size=${AVATAR_SIZE * 3}`;
+    const picture = LOGIN.test(login) ? this.picture(url, cx).value : null;
+    const avatar = picture
+      ? image(`${IMAGE_FOLDER}/${picture}`)
+      : div().bg(colors.raised).border(1).border_color(colors.border);
+    return h_flex()
+      .flex_none()
+      .gap(6)
+      .items_center()
+      .child(avatar.size(AVATAR_SIZE).flex_none().rounded_full())
+      .child(login);
+  }
+
   // A link to a downloaded image opens it here; any other link, in the browser.
   openLink(url: string, cx: Context) {
     const name = this.imagesByUrl[url]?.value;
@@ -400,7 +420,7 @@ export default class GitHub extends View {
         .bg(colors.background)
         .child(image(`${IMAGE_FOLDER}/${shown}`).size_full());
     this.followSpace(cx);
-    const page = this.openWork ? this.detailPage(cx, colors) : this.listPage(colors);
+    const page = this.openWork ? this.detailPage(cx, colors) : this.listPage(cx, colors);
     return div()
       .size_full()
       .min_w(0)
@@ -416,7 +436,7 @@ export default class GitHub extends View {
       .child(page);
   }
 
-  listPage(colors: Colors) {
+  listPage(cx: Context, colors: Colors) {
     return v_flex()
       .size_full()
       .min_h(0)
@@ -425,7 +445,7 @@ export default class GitHub extends View {
       .child(this.kindTabs(colors))
       .child(this.presets(colors))
       .child(this.search.render(colors))
-      .child(this.results(colors));
+      .child(this.results(cx, colors));
   }
 
   kindTabs(colors: Colors) {
@@ -462,7 +482,7 @@ export default class GitHub extends View {
       );
   }
 
-  results(colors: Colors) {
+  results(cx: Context, colors: Colors) {
     const list = this.listsByKey[this.listKey()];
     if (!list?.value) return notice(list?.error ?? "Loading…", colors);
     // Herdr sends no close for a popover whose row is gone, so its draft would reopen on the next row with that number.
@@ -470,7 +490,8 @@ export default class GitHub extends View {
       if (!list.value.some((work) => work.number === number)) this.labelDrafts.delete(number);
     const labelsCell = (work: ListedWork) => this.labelsCell(work, colors);
     const onOpen = ({ number }: ListedWork, cx: Context) => this.showWork(number, cx);
-    return workTable(list.value, onOpen, labelsCell, this.narrow, colors);
+    const personOf = (login: string) => this.person(login, colors, cx);
+    return workTable(list.value, onOpen, labelsCell, personOf, this.narrow, colors);
   }
 
   labelsCell(work: Work, colors: Colors) {
@@ -581,11 +602,12 @@ export default class GitHub extends View {
     const sources: Sources = {
       diagramOf: (source) => this.diagram(source, palette, cx),
       pictureOf: (url) => this.picture(url, cx),
+      personOf: (login) => this.person(login, colors, cx),
       onLink: (url, cx) => this.openLink(url, cx),
     };
     return page
       .child(div().flex_none().text_size(16).font_semibold().child(work.title))
-      .child(facts(work, colors))
+      .child(facts(work, sources.personOf, colors))
       .child(conversation(work, sources, colors));
   }
 }
@@ -773,6 +795,7 @@ function workTable(
   works: ListedWork[],
   onOpen: (work: ListedWork, cx: Context) => void,
   labelsCell: (work: ListedWork) => Element,
+  personOf: PersonOf,
   narrow: boolean,
   colors: Colors,
 ) {
@@ -789,7 +812,9 @@ function workTable(
         .flex_1()
         .min_h(0)
         .overflow_y_scrollbar()
-        .children(works.map((work) => tableRow(work, onOpen, labelsCell, narrow, colors))),
+        .children(
+          works.map((work) => tableRow(work, onOpen, labelsCell, personOf, narrow, colors)),
+        ),
     );
 }
 
@@ -828,6 +853,7 @@ function tableRow(
   work: ListedWork,
   onOpen: (work: ListedWork, cx: Context) => void,
   labelsCell: (work: ListedWork) => Element,
+  personOf: PersonOf,
   narrow: boolean,
   colors: Colors,
 ) {
@@ -846,7 +872,6 @@ function tableRow(
       .on_click((_e, cx) => onOpen(work, cx))
       .child(idCell(work, colors))
       .child(v_flex().flex_1().min_w(0).gap(6).child(title).child(labelsCell(work)));
-  const assignees = work.assignees.map(({ login }) => login).join(", ");
   return h_flex()
     .id(`work-${work.number}`)
     .flex_none()
@@ -859,13 +884,22 @@ function tableRow(
     .hover((style) => style.bg(colors.hover))
     .on_click((_e, cx) => onOpen(work, cx))
     .child(idCell(work, colors))
-    .child(v_flex().flex_1().min_w(0).gap(4).child(title).child(context(work, colors)))
+    .child(
+      v_flex()
+        .flex_1()
+        .min_w(0)
+        .gap(4)
+        .child(title)
+        .child(context(work, personOf, colors)),
+    )
     .child(labelsCell(work))
     .child(
       column(ASSIGNEES_WIDTH)
-        .truncate()
-        .text_color(assignees ? colors.foreground : colors.dim)
-        .child(assignees || "-"),
+        .flex()
+        .gap(8)
+        .overflow_hidden()
+        .when(!work.assignees.length, (empty) => empty.text_color(colors.dim).child("-"))
+        .children(work.assignees.map(({ login }) => personOf(login))),
     );
 }
 
@@ -879,13 +913,13 @@ function idCell(work: Work, colors: Colors) {
     .child(`#${work.number}`);
 }
 
-function context(work: Work, colors: Colors) {
+function context(work: Work, personOf: PersonOf, colors: Colors) {
   return h_flex()
     .gap(10)
     .items_center()
     .text_size(12)
     .text_color(colors.muted)
-    .child(div().flex_none().child(work.author.login))
+    .child(personOf(work.author.login))
     .child(div().flex_none().child(repoOf(work.url).split("/")[1]));
 }
 
@@ -932,7 +966,7 @@ function barButton(id: string, text: string, action: ClickHandler, colors: Color
     .child(text);
 }
 
-function facts(work: WorkDetail, colors: Colors) {
+function facts(work: WorkDetail, personOf: PersonOf, colors: Colors) {
   const fact = (text: string) => div().flex_none().child(text);
   return h_flex()
     .flex_none()
@@ -941,7 +975,7 @@ function facts(work: WorkDetail, colors: Colors) {
     .gap(10)
     .text_size(12)
     .text_color(colors.muted)
-    .child(fact(work.author.login))
+    .child(personOf(work.author.login))
     .when(work.labels.length > 0, (row) =>
       row.child(
         h_flex()
@@ -964,7 +998,7 @@ function pullFacts(work: WorkDetail) {
 
 function conversation(work: WorkDetail, sources: Sources, colors: Colors) {
   const postOf = (id: string, author: string, body: string) =>
-    post(author, bodyParts(id, body, sources, colors), colors);
+    post(sources.personOf(author), bodyParts(id, body, sources, colors), colors);
   return v_flex()
     .id("work-posts")
     .flex_1()
@@ -979,7 +1013,7 @@ function conversation(work: WorkDetail, sources: Sources, colors: Colors) {
     );
 }
 
-function post(author: string, parts: (Element | string)[], colors: Colors) {
+function post(author: Element, parts: (Element | string)[], colors: Colors) {
   return v_flex()
     .flex_none()
     .rounded(8)

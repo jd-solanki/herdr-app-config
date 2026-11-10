@@ -519,7 +519,10 @@ export default class GitHub extends View {
       pictureOf: (url) => this.picture(url, cx),
       onLink: (url, cx) => this.openLink(url, cx),
     };
-    return page.child(facts(work, colors)).child(conversation(work, sources, colors));
+    return page
+      .child(div().flex_none().text_size(16).font_semibold().child(work.title))
+      .child(facts(work, colors))
+      .child(conversation(work, sources, colors));
   }
 }
 
@@ -826,15 +829,7 @@ function detailBar(number, work, onBack, colors) {
     .gap(10)
     .items_center()
     .child(barButton("back", "← Back", onBack, colors))
-    .child(div().flex_none().text_color(colors.dim).child(`#${number}`))
-    .child(
-      div()
-        .flex_1()
-        .min_w(0)
-        .truncate()
-        .font_semibold()
-        .child(work?.title ?? ""),
-    )
+    .child(div().flex_1().text_color(colors.dim).child(`#${number}`))
     .when(work, (bar) =>
       bar
         .child(statusPill(work, colors))
@@ -860,13 +855,24 @@ function barButton(id, text, action, colors) {
 }
 
 function facts(work, colors) {
-  const items = [work.author.login, ...work.labels.map(({ name }) => name), ...pullFacts(work)];
+  const fact = (text) => div().flex_none().child(text);
   return h_flex()
     .flex_none()
+    .flex_wrap()
+    .items_center()
     .gap(10)
     .text_size(12)
     .text_color(colors.muted)
-    .children(items.map((item) => div().flex_none().child(item)));
+    .child(fact(work.author.login))
+    .when(work.labels.length > 0, (row) =>
+      row.child(
+        h_flex()
+          .flex_wrap()
+          .gap(4)
+          .children(work.labels.map((label) => labelChip(label, colors))),
+      ),
+    )
+    .children(pullFacts(work).map(fact));
 }
 
 function pullFacts(work) {

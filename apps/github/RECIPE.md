@@ -41,11 +41,12 @@ The mod fills its pane on the theme's `background`. Text is 13px in `foreground`
 
 **The detail page**, 12px between its parts:
 
-- **A bar:** "← Back", "#123" in `dim`, the title (semibold, cut off with an ellipsis), then, once loaded, a state pill and a "↗" button, all 10px apart.
+- **A bar:** "← Back", "#123" in `dim` taking the free width, then, once loaded, a state pill and a "↗" button, all 10px apart.
   - The buttons are 28px high, 10px side padding, 6px radius, a 1px `border` line, `muted` text, on `hover` under the pointer.
   - The pill has 9px by 2px padding, 10px radius, and its line and 11px semibold text are in the state's color from the table above: "Open", "Draft", "Merged" or "Closed".
 - "Loading…" or gh's error until it loads, as on the list.
-- **Facts**, 12px `muted`, 10px apart: the author, each label's name, and for a pull request "head → base", "+12 -3" and "4 files".
+- **The title**, 16px semibold, wrapping in full.
+- **Facts**, 12px `muted`, 10px apart and wrapping: the author, the labels as chips like the list's, 4px apart, and for a pull request "head → base", "+12 -3" and "4 files".
 - **The posts**, scrolling, 12px apart: the description first ("No description" when empty), then each comment. A post has 8px radius and a 1px `border` line. Its header has 14px by 8px padding, 12px `muted` text on `surface`, a 1px `border` line under it, and shows the author's login. The body has 14px padding and 10px between its parts:
   - Text, as selectable Markdown.
   - Each Mermaid code block, drawn as a diagram at its own width and height, scrolling sideways when wider. It says "Rendering diagram…" in `muted` while drawing. If drawing fails it shows the error and the block's source as a code block.

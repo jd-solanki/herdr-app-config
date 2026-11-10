@@ -60,9 +60,11 @@ const DIAGRAM_FOLDER = "data/github/mermaid";
 // Shipped beside main.js; the path names the mod's folder, so renaming the mod changes it too.
 const MOD_FOLDER = "mods/github";
 const IMAGE_FOLDER = "data/github/images";
-// A bot's "app/name" has no avatar URL, and the strict charset keeps the login from reshaping it.
-const LOGIN = /^[\w-]+$/;
+// A bot's login is "app/<slug>". The strict charset keeps a login from reshaping the avatar URL.
+const LOGIN = /^(app\/)?([\w-]+)$/;
 const AVATAR_SIZE = 16;
+// 3x the avatar, sharp on hi-dpi screens.
+const AVATAR_PX = AVATAR_SIZE * 3;
 // TextView draws no images, so each becomes a link, and a GitHub-hosted one also a thumbnail. Groups: markdown alt, markdown URL, <img> src.
 const IMAGE = /!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?[^)]*\)|<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
 // Only these are downloaded: any other host would learn your IP and when you read the post.
@@ -290,9 +292,20 @@ export default class GitHub extends View {
   }
 
   person(login, colors, cx) {
-    // 3x the avatar, sharp on hi-dpi screens.
-    const url = `https://github.com/${login}.png?size=${AVATAR_SIZE * 3}`;
-    const picture = LOGIN.test(login) ? this.picture(url, cx).value : null;
+    const [, app, name] = login.match(LOGIN) ?? [];
+    const { place } = this;
+    const download = (url) => downloadImage(url, place);
+    let picture;
+    // Keyed by login, not URL: a bot's URL needs its app id first.
+    if (app)
+      picture = this.queued(
+        this.imagesByUrl,
+        login,
+        () => appAvatar(name, place).then(download),
+        cx,
+      ).value;
+    else if (name)
+      picture = this.picture(`https://github.com/${name}.png?size=${AVATAR_PX}`, cx).value;
     const avatar = picture
       ? image(`${IMAGE_FOLDER}/${picture}`)
       : div().bg(colors.raised).border(1).border_color(colors.border);
@@ -567,6 +580,12 @@ async function stdoutOf(command, args, options) {
 }
 
 const gh = (args, place) => stdoutOf("gh", args, place);
+
+// github.com/apps/<slug>.png refuses to serve, so a bot's avatar is found by its app id.
+async function appAvatar(slug, place) {
+  const id = (await gh(["api", `apps/${slug}`, "--jq", ".id"], place)).trim();
+  return `https://avatars.githubusercontent.com/in/${id}?s=${AVATAR_PX}`;
+}
 
 // `--state all`: the search query owns the state, so `is:closed` works.
 function listWork(kind, query, place) {

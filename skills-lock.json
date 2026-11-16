@@ -53,7 +53,7 @@
       "source": "upstash/context7",
       "sourceType": "github",
       "skillPath": "skills/context7-cli/SKILL.md",
-      "computedHash": "91630515279270eb0f4d0701efb6f97f3eb8ab6280c65516b9443f4ad06cc9c9"
+      "computedHash": "5a6ba15f495ff7b14b2b0bbf48b67e89e025f4d08a27e1d6ba64a1e9fb31af58"
     },
     "create-pr": {
       "source": "jd-solanki/ai",
@@ -89,7 +89,7 @@
       "source": "upstash/context7",
       "sourceType": "github",
       "skillPath": "skills/find-docs/SKILL.md",
-      "computedHash": "bc717bce4e8c02243fe852b20ee9990962b13a91c493ce59417278b2218127a5"
+      "computedHash": "2f042e7e9711a2a720b595083eb13c7f06380e6557f2eb689ce3182d4380e39d"
     },
     "grill-with-docs": {
       "source": "mattpocock/skills",
@@ -173,7 +173,7 @@
       "source": "jd-solanki/ai",
       "sourceType": "github",
       "skillPath": "skills/scaffolding/setup-jd-solanki-skills/SKILL.md",
-      "computedHash": "8b18adfb296afd6d763acb1e8d1ed42397d2f77f24931aeb1c9334b47efd59bd"
+      "computedHash": "63a447215f2624df61bbf840406fdee041638cbad8842c7e0d01c6d69cd2c60c"
     },
     "setup-project-context": {
       "source": "jd-solanki/ai",

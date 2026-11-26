@@ -2,7 +2,7 @@
 name: capture-media
 description: >
   Capture browser screenshots and videos of a running app as files: a showcase of a change for a
-  pull request body, or proof of a QA scenario run. Picks the media, records it with
+  pull request body, or proof of a behaviour check. Picks the media, records it with
   playwright-cli, hides personal data, and fits each video under GitHub's 10 MB limit with ffmpeg.
   Use when another skill or the user needs media of what the browser shows.
 ---
@@ -15,7 +15,7 @@ nothing: posting the files is the caller's job.
 The caller gives you a **purpose**:
 
 - **showcase**: show a reviewer what a change looks like and how it behaves.
-- **proof**: show that a QA scenario ran, step by step, and what each step showed.
+- **proof**: show that a behaviour scenario ran, step by step, and what each step showed.
 
 ## 1. Pick the media
 
@@ -57,6 +57,11 @@ Run `ffmpeg -hide_banner -encoders | grep libx264` before the first video.
 
 Read `playwright-cli --help` for the commands, and the skill it points to before the first one.
 
+- **Dev tools**: before the first capture, hide every element marked `data-dev-tool` (such as
+  `/ux`'s data menu) for the whole browser session, so it stays hidden across page loads:
+  ```shell
+  playwright-cli run-code "async page => { await page.context().addInitScript(() => { const s = () => document.head.insertAdjacentHTML('beforeend', '<style>[data-dev-tool]{visibility:hidden!important}</style>'); document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', s) : s() }) }"
+  ```
 - **Data**: record the accounts and records the run created. Anything else that shows a person
   (emails, names, IDs, avatars) gets a blur first:
   `playwright-cli eval "document.querySelectorAll('<selector>').forEach(e => e.style.filter = 'blur(6px)')"`.

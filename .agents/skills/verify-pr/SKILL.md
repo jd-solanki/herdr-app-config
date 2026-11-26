@@ -1,7 +1,7 @@
 ---
 name: verify-pr
 description: >
-  QA a pull request by its QA steps: run each scenario on a checkout through /run-qa-scenarios,
+  QA a pull request by its QA steps: run each scenario on a checkout through /run-qa,
   and report every scenario pass, fail or blocked, with its proof media, in one QA comment. Use
   when asked to verify, QA or try a pull request.
 disable-model-invocation: true
@@ -9,8 +9,8 @@ disable-model-invocation: true
 
 # Verify PR
 
-The pull request body's `## QA steps` is the script: a list of scenarios, each a checkbox with
-numbered steps and the result each should show. `/run-qa-scenarios` tries every scenario on a
+The pull request body's `## QA steps` is the script: a list of QA scenarios, each a checkbox whose
+title names its check (behaviour or render). `/run-qa` tries every scenario on a
 checkout of the pull request; you post what it saw. You commit no code: a failure goes to whoever
 fixes it, as a review thread.
 
@@ -33,7 +33,7 @@ than its `QA runs` count, or 1 with none.
 
 ## 2. Try every scenario
 
-Make a run folder, `${TMPDIR:-/tmp}/qa-<repo>-pr<n>-<run>/`. Run `/run-qa-scenarios` with every
+Make a run folder, `${TMPDIR:-/tmp}/qa-<repo>-pr<n>-<run>/`. Run `/run-qa` with every
 scenario, this checkout, the run folder and the mode **unattended**: nobody answers here.
 
 **Done when** every scenario has a state, with the observed text behind each fail, the missing
@@ -45,12 +45,15 @@ Write in this order: the comment goes last, because its verdict is what the soft
 acts on, and it must point at threads that already exist.
 
 1. **Threads.** With any scenario failed, post one review, event `COMMENT`, with one inline
-   comment per failed scenario, written so the Fixer can make the failure happen again: the
-   scenario and its role, its steps, the failing step with expected and seen, and its fault patch
-   in a `diff` block when it has one. Anchor it on the
-   changed line most likely responsible, or the first changed line of that file when you
-   cannot tell; GitHub takes only lines in the diff. A blocked scenario gets no thread: no
-   code change unblocks it.
+   comment per failed scenario, written so the Fixer can make the failure happen again:
+   - a behaviour check: the scenario and its role, its steps, the failing step with expected and
+     seen, and its fault patch in a `diff` block when it has one;
+   - a render check: the page, then each finding with its state, device, element, what breaks
+     and its one fix.
+
+   Anchor it on the changed line most likely responsible, or the first changed line of that file
+   when you cannot tell; GitHub takes only lines in the diff. A blocked scenario gets no thread:
+   no code change unblocks it.
 2. **Checkboxes.** On a `fail` verdict, untick every box: the Fixer pushes next, so no pass
    would hold on the code a human sees. Otherwise tick each scenario that passed this run and
    untick every other, then `gh pr edit <n> --body-file <file>`. A tick means it passed on this
@@ -77,9 +80,12 @@ The second line is the run's verdict:
 - ✅ **<scenario>**
 
   ![<scenario>](./<media file>)
-- ❌ **<scenario>** · step <n>: expected <x>, saw <y> · <link to its thread>
+- ❌ **<behaviour scenario>** · step <n>: expected <x>, saw <y> · <link to its thread>
 
   ![<scenario>, step <n>](./<media file>)
+- ❌ **<render scenario>** · <count> findings · <link to its thread>
+
+  ![<state>, <device>: <what breaks>](./<screenshot>)
 - 🚧 **<scenario>** · blocked at step <n>: needs <what> · needs you
 
 <sub>QA runs (<n>/3) · Last verified commit: <short sha> · Took <minutes>m</sub>
@@ -88,11 +94,12 @@ The second line is the run's verdict:
 The action is `Ready to merge` on a pass with nothing blocked, `<count> need you` on a pass
 with blocked scenarios, `Fix the failing scenarios` on a fail, and `QA ended: a human decides`
 on an ended run. List scenarios in the body's order. A scenario that ran with a fault patch ends
-its line with `· 🩹 fault patch`. A video split into parts lists every part.
+its line with `· 🩹 fault patch`. A video split into parts lists every part. A render scenario
+shows the screenshot of each finding; a passed one shows none.
 
 **Done when:** the comment carries this run's verdict, and every link in it opens a thread.
 
 ## 4. Clean up
 
-`/run-qa-scenarios` cleans up its sessions and servers. Leave the checkout as it started:
+`/run-qa` cleans up its sessions and servers. Leave the checkout as it started:
 `git reset --hard` and `git clean -fd`.

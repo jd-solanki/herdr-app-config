@@ -1,16 +1,18 @@
 ---
 name: write-qa-scenarios
 description: >
-  Write the QA scenarios for a change: the happy paths, every unhappy path the change can break,
-  for each role it touches, and what its spec asked for. Use when a pull request needs QA steps,
-  before running QA on a change, or when asked what to test.
+  Write the QA scenarios for a change: behaviour checks for the happy paths, every unhappy path the
+  change can break, each role it touches and what its spec asked for, plus a render check for each
+  page it changes. Use when a pull request needs QA steps, before running QA on a change, or when
+  asked what to test.
 ---
 
 # Write QA scenarios
 
-A **QA scenario** is one behaviour to try, run as one role when the app has roles, with numbered
-steps that each name the result to see. An **unhappy path** is a run where something goes other
-than planned. You write scenarios; `/run-qa-scenarios` tries them.
+A **QA scenario** is one thing to check, for one **check**: a **behaviour check** (does the app do
+the right thing?) or a **render check** (does a page hold up on every device and data state?). An
+**unhappy path** is a run where something goes other than planned. You write scenarios; `/run-qa`
+runs them.
 
 ## 1. Read the change
 
@@ -37,37 +39,48 @@ asks for.
 5. **Blast radius**: what else uses the changed code, and one scenario that shows it still
    works. A change with no visible behaviour, such as a refactor, gets the scenario that shows
    nothing moved.
+6. **Render checks**: one per page whose rendering the change can alter, with its **depth**:
+   - `full` when the page is new, or the change alters that page's own layout;
+   - `quick` when the change reaches the page only through a shared part: a component, global
+     CSS, the theme.
 
-**Done when** every behaviour, every spec item and every kept kind has a scenario, and each pair
-you dropped behaves like one you kept.
+   An app with no pages has no render checks.
+
+**Done when** every behaviour, every spec item, every kept kind and every page the change can
+alter has a scenario, and each pair you dropped behaves like one you kept.
 
 ## 3. Write them
 
 ```markdown
-- [ ] **As admin: deleting a member asks to confirm**
+- [ ] **Behaviour check · As admin: deleting a member asks to confirm**
   1. `pnpm dev`, sign up as an admin, add a member → `/members` lists the member.
   2. Click Delete on that member → a dialog asks to confirm.
-- [ ] **As admin: a failed delete keeps the member and offers Retry**
+- [ ] **Behaviour check · As admin: a failed delete keeps the member and offers Retry**
   Fault: the members API answers 500 to `DELETE`.
   1. `pnpm dev`, sign up as an admin, add a member → `/members` lists the member.
   2. Click Delete, then Confirm → an error names the failure and shows Retry; the member stays.
+- [ ] **Render check · /members holds up on every device and data state**
+  Depth: full · why: this change alters the page's own layout.
 ```
 
-- The title is the behaviour, plainly, led by `As <role>:` when the app has roles.
+- The title starts with its check's name, then the thing to check, plainly. A behaviour title
+  names its role first, `As <role>:`, when the app has roles.
+- Each fact beyond the steps is a labelled line: `Fault:` for a behaviour check, `Depth:` with its
+  reason for a render check.
 - Each scenario makes its own accounts and records in its first step. It starts from a clean app,
   never from what another scenario left.
-- An unhappy path that needs a failure says so in a `Fault:` line: what fails and how. The runner
+- An unhappy path that needs a failure says what fails and how in its `Fault:` line. The runner
   picks how to force it.
-- Every step is something a person does by hand: the command to run or the thing to click, then
-  `→` and the result to see. CI already reports the tests.
-- Order: happy paths, then spec items, then unhappy paths, then blast radius.
+- Every behaviour step is something a person does by hand: the command to run or the thing to
+  click, then `→` and the result to see. CI already reports the tests.
+- Order: happy paths, then spec items, then unhappy paths, then blast radius, then render checks.
 
 **Done when** every scenario from step 2 is written, each step names its result, and every
 unticked box can be tried from a checkout of the change.
 
 ## 4. Hand them over
 
-- **A caller asked** (`/create-pr`, `/run-qa-scenarios`): return the list.
+- **A caller asked** (`/create-pr`, `/run-qa`): return the list.
 - **The user asked**: write `qa.md` in a run folder outside the repo,
   `${TMPDIR:-/tmp}/qa-<repo>-<yyyymmdd-hhmmss>/`, and reply with its path and the number of
   scenarios. The file is where you edit them, so the chat carries only the path.

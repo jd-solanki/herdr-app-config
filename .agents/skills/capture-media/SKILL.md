@@ -1,10 +1,11 @@
 ---
 name: capture-media
 description: >
-  Capture browser screenshots and videos of a running app as files: a showcase of a change for a
-  pull request body, or proof of a behaviour check. Picks the media, records it with
+  Take screenshots or record a video of a page in the running app, saved as files: a showcase of a
+  change for a pull request body, or proof of a behaviour check. Picks the media, records it with
   playwright-cli, hides personal data, and fits each video under GitHub's 10 MB limit with ffmpeg.
-  Use when another skill or the user needs media of what the browser shows.
+  Use when asked for screenshots or a video of a page or flow, or when a pull request or a QA run
+  needs media.
 ---
 
 # Capture media

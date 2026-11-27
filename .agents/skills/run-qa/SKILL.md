@@ -1,11 +1,12 @@
 ---
 name: run-qa
 description: >
-  QA a change in the running app, one check at a time: a behaviour check tries QA scenarios (happy
-  and unhappy paths, per role) and ends each pass, fail or blocked with proof; a render check
-  reviews screenshots of a page on every device and data state, at quick or full depth. Use when
-  asked to QA or test a change by hand, to check edge cases while developing, or to check how a
-  page holds up on mobile and across devices.
+  Test or QA a change by hand in the running app, edge cases included, one check at a time: a
+  behaviour check tries QA scenarios (happy and unhappy paths, per role) and ends each pass, fail
+  or blocked with proof; a render check reviews screenshots of a page on every device and data
+  state, at quick or full depth. Use when asked to test, QA or try what was built, to test its
+  edge cases, to try a pull request's QA steps, or to check how a page holds up on mobile and
+  across devices.
 argument-hint: "[behaviour | render] [quick | full] [page URL]"
 ---
 

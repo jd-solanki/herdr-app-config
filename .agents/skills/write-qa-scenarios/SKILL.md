@@ -1,10 +1,10 @@
 ---
 name: write-qa-scenarios
 description: >
-  Write the QA scenarios for a change: behaviour checks for the happy paths, every unhappy path the
-  change can break, each role it touches and what its spec asked for, plus a render check for each
-  page it changes. Use when a pull request needs QA steps, before running QA on a change, or when
-  asked what to test.
+  Decide what to test for a change by writing its QA scenarios: behaviour checks for the happy
+  paths, every unhappy path the change can break, each role it touches and what its spec asked
+  for, plus a render check for each page it changes. Use when asked what to test or how to test a
+  change, when a pull request needs QA steps, or before running QA.
 ---
 
 # Write QA scenarios
